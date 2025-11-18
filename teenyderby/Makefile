@@ -13,9 +13,11 @@ endif
 
 all:
 	gcc -c ../tigr.c -o tigr.o $(CFLAGS)
+	g++ -c utils.cpp -o utils.o $(CPPFLAGS) $(WFLAGS)
+	g++ -c bus.cpp -o bus.o $(CPPFLAGS) $(WFLAGS)
 	gcc -c ../teenyat.c -o teenyat.o $(CFLAGS) $(WFLAGS)
 	g++ -c main.cpp -o main.o $(CPPFLAGS) $(WFLAGS)
-	g++ tigr.o teenyat.o main.o -o $(EXEC) $(LDFLAGS)
+	g++ tigr.o teenyat.o main.o utils.o bus.o -o $(EXEC) $(LDFLAGS)
 
 clean:
 	rm -f $(EXEC) *.o
