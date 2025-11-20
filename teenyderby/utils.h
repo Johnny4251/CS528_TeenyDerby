@@ -54,4 +54,18 @@ void load_agents(const std::vector<std::string>& bin_files,
  * @brief bla bla
  */
 void randomize_cars(std::vector<Car> &cars, std::vector<teenyat> &agents);
+
+void tigrFillTriangle(Tigr* win,
+                      float x1, float y1,
+                      float x2, float y2,
+                      float x3, float y3,
+                      TPixel color);
+
+
+void drawRotatedCar(Tigr* win, const Car& car);
+
+void getRotatedCorners(int x, int y, int w, int h, float angle, float px[4], float py[4]);
+
+bool rotatedInBounds(const Car& car, float nx, float ny, float angle);
+
 #endif
