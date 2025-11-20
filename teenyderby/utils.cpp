@@ -69,6 +69,6 @@ void randomize_cars(std::vector<Car> &cars, std::vector<teenyat> &agents) {
                 
             } while (!ok && attempts < 20);
 
-            cars.push_back({x, y, CAR_W, CAR_H, color});
+            cars.push_back({x, y, CAR_W, CAR_H, 0.0f, color});
         }
 }

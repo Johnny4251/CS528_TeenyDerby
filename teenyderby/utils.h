@@ -5,6 +5,7 @@
 #include "../teenyat.h"
 #include <vector>
 #include <string>
+#include <cmath>
 
 // temp
 #define DERBY_MOVE_UP_ADDR    0x9000
@@ -33,6 +34,7 @@ typedef struct {
 struct Car {
     int x, y;
     int w, h;
+    float angle;
     TPixel color;
 };
 
@@ -52,5 +54,4 @@ void load_agents(const std::vector<std::string>& bin_files,
  * @brief bla bla
  */
 void randomize_cars(std::vector<Car> &cars, std::vector<teenyat> &agents);
-
 #endif
