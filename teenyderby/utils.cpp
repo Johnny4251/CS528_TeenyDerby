@@ -153,6 +153,7 @@ void drawRotatedCar(Tigr* win, const Car& car)
     float s = sinf(car.angle);
 
     // 4 rectangle corners relative to the center
+    // Top-left, Top-right, Bottom-right, Bottom-left
     float rx[4] = { -hw,  hw,  hw, -hw };
     float ry[4] = { -hh, -hh,  hh,  hh };
 
@@ -174,6 +175,19 @@ void drawRotatedCar(Tigr* win, const Car& car)
     // Draw two triangles that form the rectangle
     tigrFillTriangle(win, px[0], py[0], px[1], py[1], px[2], py[2], car.color);
     tigrFillTriangle(win, px[0], py[0], px[2], py[2], px[3], py[3], car.color);
+
+
+    // FRONT EDGE = between corners 0 → 1
+    tigrLine(win,
+        (int)px[1], (int)py[1],
+        (int)px[2], (int)py[2],
+        tigrRGB(255, 0, 0));  // red
+
+    // BACK EDGE = between corners 3 → 2
+    tigrLine(win,
+        (int)px[0], (int)py[0],
+        (int)px[3], (int)py[3],
+        tigrRGB(0, 0, 255));  // blue
 }
 
 void getRotatedCorners(int x, int y, int w, int h, float angle, float px[4], float py[4]) {

@@ -61,19 +61,83 @@ int main() {
                     break;
                     }
                     case 3:{
-                        float newAngle = cars[i].angle - 0.05f;
+                        // float newAngle = cars[i].angle + 0.05f;
+                        float newAngle = cars[i].angle - M_PI / 4;  
+                        // rotate 45° to left
                         if (rotatedInBounds(cars[i], cars[i].x, cars[i].y, newAngle))
                             cars[i].angle = newAngle;
+                        state->move_cmd = 0;   // ← consume the command
+                        break;
                     }
-                    break;
                     case 4:{
-                        float newAngle = cars[i].angle + 0.05f;
+                        // float newAngle = cars[i].angle + 0.05f;
+                        float newAngle = cars[i].angle + M_PI / 4;
+                        // rotate 45° to right
                         if (rotatedInBounds(cars[i], cars[i].x, cars[i].y, newAngle))
                             cars[i].angle = newAngle;
+                        state->move_cmd = 0;   // ← consume the command
+                        break;
                         }
-                    break;
+                    case 5: { // north
+                        float newAngle = M_PI / 2;
+                        if (rotatedInBounds(cars[i], cars[i].x, cars[i].y, newAngle))
+                            cars[i].angle = newAngle;
+                        state->move_cmd = 0;   // ← consume the command
+                        break;
+                    }
+                    case 6: { // northeast
+                        float newAngle = M_PI / 4;
+                        if (rotatedInBounds(cars[i], cars[i].x, cars[i].y, newAngle))
+                            cars[i].angle = newAngle;
+                        state->move_cmd = 0;   // ← consume the command
+                        break;
+                    }
+                    case 7: { // east
+                        float newAngle = 0;
+                        if (rotatedInBounds(cars[i], cars[i].x, cars[i].y, newAngle))
+                            cars[i].angle = newAngle;
+                        state->move_cmd = 0;   // ← consume the command
+                        break;
+                    }
+                    case 8: { // southeast
+                        float newAngle = 7 * M_PI / 4;
+                        if (rotatedInBounds(cars[i], cars[i].x, cars[i].y, newAngle))
+                            cars[i].angle = newAngle;
+                        state->move_cmd = 0;   // ← consume the command
+                        break;
+                    }
+                    case 9: { // south
+                        float newAngle = 3 * M_PI / 2; 
+                        if (rotatedInBounds(cars[i], cars[i].x, cars[i].y, newAngle))
+                            cars[i].angle = newAngle;
+                        state->move_cmd = 0;   // ← consume the command
+                        break;
+                    }
+                    case 10: { // southwest
+                        float newAngle = 5 * M_PI / 4;
+                        if (rotatedInBounds(cars[i], cars[i].x, cars[i].y, newAngle))
+                            cars[i].angle = newAngle;
+                        state->move_cmd = 0;   // ← consume the command
+                        break;
+                    }
+                    case 11: { // west
+                        float newAngle = M_PI;
+                        if (rotatedInBounds(cars[i], cars[i].x, cars[i].y, newAngle))
+                            cars[i].angle = newAngle;
+                        state->move_cmd = 0;   // ← consume the command
+                        break;
+                    }
+                    case 12: { // northwest
+                        float newAngle = 3 * M_PI / 4;
+                        if (rotatedInBounds(cars[i], cars[i].x, cars[i].y, newAngle))
+                            cars[i].angle = newAngle;
+                        state->move_cmd = 0;   // ← consume the command
+                        break;
+                    }
                     default: break;
                 }
+
+
 
                     bool in_bounds = !(nx < 0 || ny < 0 || nx + cars[i].w > WIN_W || ny + cars[i].h > WIN_H);
 
