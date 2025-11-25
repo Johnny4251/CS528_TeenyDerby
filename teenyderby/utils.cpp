@@ -7,6 +7,12 @@
 #include "teenyat.h"
 #include <cstdlib>
 
+
+DerbyState*       g_derby_state       = nullptr;
+size_t            g_derby_state_count = 0;
+std::vector<Car>* g_cars              = nullptr;
+
+
 void get_binaries(std::vector<std::string> &bin_files) {
     DIR* dir = opendir("agents");
     if (!dir)
@@ -32,46 +38,44 @@ void load_agents(const std::vector<std::string>& bin_files,
     agents.clear();
     agents.resize(bin_files.size());
 
+    g_derby_state       = derby_state;
+    g_derby_state_count = bin_files.size();
+
+    for (size_t i = 0; i < bin_files.size(); ++i) {
+        derby_state[i].id            = i;
+        derby_state[i].sensor_target = 0;
+        derby_state[i].speed         = 0;
+        derby_state[i].health        = 100;
+    }
+
     for (size_t i = 0; i < bin_files.size(); ++i) {
         FILE* f = fopen(bin_files[i].c_str(), "rb");
         if (!f) continue;
+
         tny_init_from_file(&agents[i], f, derby_bus_read, derby_bus_write);
-        if (i < 8)
-            agents[i].ex_data = &derby_state[i];
-        else
-            agents[i].ex_data = nullptr;
+        agents[i].ex_data = &derby_state[i];
 
         fclose(f);
     }
 }
 
+
 void randomize_cars(std::vector<Car> &cars, std::vector<teenyat> &agents) {
-    TPixel color;
-    
+    g_cars = &cars;
+``
+    cars.clear();
     for (size_t i = 0; i < agents.size(); ++i) {
-            int x, y;
-            bool ok;
-            int attempts = 0;
-
-            do {
-                x = MARGIN + (std::rand() % (WIN_W - CAR_W - 2 * MARGIN + 1));
-                y = MARGIN + (std::rand() % (WIN_H - CAR_H - 2 * MARGIN + 1));
-                ok = true;
-                for (const auto &c : cars) {
-                    if (abs(c.x - x) < CAR_W && abs(c.y - y) < CAR_H) {
-                        ok = false;
-                        break;
-                    }
-                }
-                attempts++;
-
-                color = tigrRGB(std::rand()%256, std::rand()%256, std::rand()%256);
-                
-            } while (!ok && attempts < 20);
-
-            cars.push_back({x, y, CAR_W, CAR_H, 0.0f, color});
-        }
+        Car c;
+        c.w = 32;
+        c.h = 16;
+        c.x = rand() % (WIN_W - c.w);
+        c.y = rand() % (WIN_H - c.h);
+        c.angle = 0;
+        c.color = tigrRGB(rand()%255, rand()%255, rand()%255);
+        cars.push_back(c);
+    }
 }
+
 
 void tigrFillTriangle(Tigr* win,
                       float x1, float y1,
