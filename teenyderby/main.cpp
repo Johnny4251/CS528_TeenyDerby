@@ -1,33 +1,21 @@
-#include <stdio.h>
-#include "../teenyat.h"
-#include "tigr.h"
+#include <iostream>
 #include <vector>
-#include <string>
-#include <dirent.h>
-#include <cstdlib>
 #include <ctime>
-#include <cstdio>
-#include <iostream> 
-
+#include <cmath>
+#include "tigr.h"
 #include "utils.h"
+#include "bus.h"
 
 int main() {
-    std::srand((unsigned)std::time(nullptr)); 
+    srand(time(NULL));
 
-    // open TIGR window
-    Tigr *win = tigrWindow(WIN_W, WIN_H, "TeenyDerby", TIGR_FIXED);
+    Tigr* win = tigrWindow(WIN_W, WIN_H, "Teeny Derby", TIGR_FIXED);
 
-    // get bin files
     std::vector<std::string> bin_files;
     get_binaries(bin_files);
-    if(bin_files.size() <= 0) {
-        std::cout << "No agent binaries found" << std::endl;
-        return -1;
-    }
 
-    // get agents
     DerbyState derby_state[AGENT_MAX_CNT] = {};
-    std::vector<teenyat> agents(bin_files.size());
+    std::vector<teenyat> agents;
     load_agents(bin_files, agents, derby_state);
 
     std::vector<Car> cars;
@@ -36,49 +24,44 @@ int main() {
     while (!tigrClosed(win)) {
         tigrClear(win, tigrRGB(30,30,30));
 
-        for (size_t i = 0; i < agents.size(); ++i) {
+        for (size_t i = 0; i < agents.size(); i++) {
             tny_clock(&agents[i]);
-            teenyat *t = &agents[i];
-            DerbyState *state = (DerbyState *)t->ex_data;
+            DerbyState* state = (DerbyState*)agents[i].ex_data;
 
-            {
-                int nx = cars[i].x;
-                int ny = cars[i].y;
+            int nx = cars[i].x;
+            int ny = cars[i].y;
 
-                switch(state->move_cmd) {
-                    case 0: break;
-                    case 1:  ny -= CAR_VERTICAL_MOVE_RATE; break; /* up */
-                    case 2:  ny += CAR_VERTICAL_MOVE_RATE; break; /* down */
-                    case 3:  nx -= CAR_HORIZONTAL_MOVE_RATE; break; /* left */
-                    case 4:  nx += CAR_HORIZONTAL_MOVE_RATE; break; /* right */
-                    default: break;
-                }
+            if (state) {
+                uint8_t dir = state->direction & 7;
+                float angle = dir * (3.14159265f / 4.0f);
 
-                    bool in_bounds = !(nx < 0 || ny < 0 || nx + cars[i].w > WIN_W || ny + cars[i].h > WIN_H);
+                cars[i].angle = angle;
 
-                    bool collides = false;
-                    if (in_bounds) {
-                        for (size_t j = 0; j < cars.size(); ++j) {
-                            if (j == i) continue;
-                            if (!(nx + cars[i].w <= cars[j].x || nx >= cars[j].x + cars[j].w ||
-                                  ny + cars[i].h <= cars[j].y || ny >= cars[j].y + cars[j].h)) {
-                                collides = true;
-                                break;
-                            }
-                        }
-                    }
+                float tval = state->throttle;
+                tval = std::max(-100.0f, std::min(100.0f, tval));
 
-                    if (in_bounds && !collides) {
-                        cars[i].x = nx;
-                        cars[i].y = ny;
-                    }
+                float speed = (tval / 100.0f) * CAR_VERTICAL_MOVE_RATE;
+                state->speed = (int16_t)std::round(std::fabs(speed));
 
-                tigrRect(win, cars[i].x, cars[i].y, cars[i].w, cars[i].h, cars[i].color);
+                nx = cars[i].x + cosf(angle) * speed;
+                ny = cars[i].y + sinf(angle) * speed;
             }
+
+            bool in_bounds = !(nx < 0 || ny < 0 ||
+                nx + cars[i].w > WIN_W ||
+                ny + cars[i].h > WIN_H);
+
+            if (in_bounds) {
+                cars[i].x = nx;
+                cars[i].y = ny;
+            }
+
+            drawRotatedCar(win, cars[i]);
         }
 
         tigrUpdate(win);
     }
+
     tigrFree(win);
     return 0;
 }
