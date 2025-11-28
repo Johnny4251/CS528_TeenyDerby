@@ -11,7 +11,7 @@
 #define WIN_W 800
 #define WIN_H 600
 
-#define CAR_VERTICAL_MOVE_RATE   4
+#define CAR_VERTICAL_MOVE_RATE   6
 
 struct Car {
     int x, y;

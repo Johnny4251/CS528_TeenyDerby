@@ -203,8 +203,6 @@ void getRotatedCorners(int x, int y, int w, int h, float angle, float px[4], flo
     }
 }
 
-// Checks if all four corners of the rotated rectangle are inside the window.
-// Returns true if it’s fully inside, false if any corner is out-of-bounds.
 bool rotatedInBounds(const Car& car, float nx, float ny, float angle)
 {
     float px[4], py[4];

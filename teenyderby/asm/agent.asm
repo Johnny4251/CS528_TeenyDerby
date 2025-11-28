@@ -1,5 +1,5 @@
 .const RAND      0x8010
-.const DLY_AMT   200
+.const DLY_AMT   25
 
 .const THROTTLE  0x9000
 
@@ -15,6 +15,13 @@
 .const FULL_THROTTLE 100
 
 !move
+    ;cut throttle
+
+    lod rA, [RAND]
+    mod rA, 35   
+;    set rA, 25
+    str [THROTTLE], rA
+
     lod rA, [RAND]
     mod rA, 8
 
