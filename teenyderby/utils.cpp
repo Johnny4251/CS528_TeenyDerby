@@ -62,7 +62,6 @@ void load_agents(const std::vector<std::string>& bin_files,
 
 void randomize_cars(std::vector<Car> &cars, std::vector<teenyat> &agents) {
     g_cars = &cars;
-``
     cars.clear();
     for (size_t i = 0; i < agents.size(); ++i) {
         Car c;
@@ -217,4 +216,66 @@ bool rotatedInBounds(const Car& car, float nx, float ny, float angle)
             return false;
     }
     return true;
+}
+
+
+void drawHealthBar(Tigr* win, const Car& car)
+{
+    if (!g_cars || !g_derby_state || g_cars->empty())
+        return;
+
+    const Car* base = g_cars->data();
+    const Car* ptr  = &car;
+    int index = static_cast<int>(ptr - base);
+
+    if (index < 0 || static_cast<size_t>(index) >= g_derby_state_count)
+        return;
+
+    const DerbyState& st = g_derby_state[index];
+
+    const int maxHealth = 100;
+    int health = static_cast<int>(st.health);
+
+    if (health < 0)         health = 0;
+    if (health > maxHealth) health = maxHealth;
+
+    float ratio = (maxHealth > 0)
+                  ? (static_cast<float>(health) / static_cast<float>(maxHealth))
+                  : 0.0f;
+
+    if (ratio < 0.0f) ratio = 0.0f;
+    if (ratio > 1.0f) ratio = 1.0f;
+
+    int barWidth  = car.w;
+    int barHeight = 4;
+
+    int barX = car.x;
+    int barY = car.y + car.h + 4;     
+
+    TPixel bg = tigrRGB(40, 40, 40);  
+
+    TPixel fg;
+    if (ratio > 0.66f)
+        fg = tigrRGB(0, 255, 0);      
+    else if (ratio > 0.33f)
+        fg = tigrRGB(255, 255, 0);    
+    else
+        fg = tigrRGB(255, 0, 0);      
+
+    TPixel border = tigrRGB(0, 0, 0);
+
+    
+    tigrFillRect(win, barX, barY, barWidth, barHeight, bg);
+
+    
+    int filledWidth = static_cast<int>(barWidth * ratio);
+    if (filledWidth > 0)
+        tigrFillRect(win, barX, barY, filledWidth, barHeight, fg);
+
+    tigrRect(win,
+             barX - 1,
+             barY - 1,
+             barWidth  + 2,
+             barHeight + 2,
+             border);
 }

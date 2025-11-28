@@ -36,7 +36,7 @@ int main() {
                 float angle = dir * (3.14159265f / 4.0f);
 
                 cars[i].angle = angle;
-
+                
                 float tval = state->throttle;
                 tval = std::max(-100.0f, std::min(100.0f, tval));
 
@@ -57,6 +57,8 @@ int main() {
             }
 
             drawRotatedCar(win, cars[i]);
+            drawHealthBar(win, cars[i]);
+
         }
 
         tigrUpdate(win);

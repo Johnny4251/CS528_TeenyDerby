@@ -43,6 +43,7 @@ void load_agents(const std::vector<std::string>& bin_files,
 void randomize_cars(std::vector<Car> &cars, std::vector<teenyat> &agents);
 
 void drawRotatedCar(Tigr* win, const Car& car);
+void drawHealthBar(Tigr* win, const Car& car); 
 bool rotatedInBounds(const Car& car, float nx, float ny, float angle);
 
 #endif
