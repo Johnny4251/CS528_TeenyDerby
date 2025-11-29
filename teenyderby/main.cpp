@@ -78,7 +78,26 @@ int main() {
             nx + cars[i].w > WIN_W ||
             ny + cars[i].h > WIN_H);
 
-            if (in_bounds) {
+            bool blocked = false;
+            Car temp = cars[i];
+            temp.x = nx;
+            temp.y = ny;
+            
+            if (!in_bounds)
+                blocked = true;
+
+            if (!blocked) {
+                for (size_t j = 0; j < cars.size(); j++) {
+                    if (j == i) continue;
+
+                    if (checkCarCollision(temp, cars[j])) {
+                        blocked = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!blocked) {
                 cars[i].x = nx;
                 cars[i].y = ny;
             } else {
@@ -87,14 +106,12 @@ int main() {
                     state->speed = 0;
                 }
 
-                if (nx < 0) nx = 0;
-                if (ny < 0) ny = 0;
-                if (nx + cars[i].w > WIN_W) nx = WIN_W - cars[i].w;
-                if (ny + cars[i].h > WIN_H) ny = WIN_H - cars[i].h;
-
-                cars[i].x = nx;
-                cars[i].y = ny;
+                if (cars[i].x < 0) cars[i].x = 0;
+                if (cars[i].y < 0) cars[i].y = 0;
+                if (cars[i].x + cars[i].w > WIN_W) cars[i].x = WIN_W - cars[i].w;
+                if (cars[i].y + cars[i].h > WIN_H) cars[i].y = WIN_H - cars[i].h;
             }
+
 
 
             drawRotatedCar(win, cars[i]);

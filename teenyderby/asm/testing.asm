@@ -1,52 +1,90 @@
-.const RAND 0x8010
-.const MOVE_FWD     0x9000
-.const MOVE_BWD     0x9001
-.const TURN_LEFT    0x9002
-.const TURN_RIGHT   0x9003
-.const FACE_DIR     0x9004 
+.const RAND      0x8010
+.const DLY_AMT   25
 
-.const DLY_AMT 2
+.const THROTTLE  0x9000
+
+.const DIR_0     0x9010    ; 0°
+.const DIR_45    0x9011    ; 45°
+.const DIR_90    0x9012    ; 90°
+.const DIR_135   0x9013    ; 135°
+.const DIR_180   0x9014    ; 180°
+.const DIR_225   0x9015    ; 225°
+.const DIR_270   0x9016    ; 270°
+.const DIR_315   0x9017    ; 315°
+
+.const FULL_THROTTLE 100
+
 !move
+    ;cut throttle
+
     lod rA, [RAND]
-    mod rA, 5           ; 0–4 → pick between 4 moves + facing cmd
+    mod rA, 35   
+;    set rA, 25
+    str [THROTTLE], rA
+
+    lod rA, [RAND]
+    mod rA, 8
 
     cmp rA, 0
-    je !do_up
+    je !dir0
 
     cmp rA, 1
-    je !do_down
+    je !dir1
 
     cmp rA, 2
-    je !do_left
+    je !dir2
 
     cmp rA, 3
-    je !do_right
+    je !dir3
 
-    ; rA == 4 → choose random facing direction 0–7
-    ; fallthrough
-!do_face
-    lod rB, [RAND]
-    mod rB, 8           ; pick direction 0–7
-    str [FACE_DIR], rB
-    DLY DLY_AMT
-    jmp !move
+    cmp rA, 4
+    je !dir4
 
-!do_up
-    str [MOVE_FWD], rZ
-    DLY DLY_AMT
-    jmp !move
+    cmp rA, 5
+    je !dir5
 
-!do_down
-    str [MOVE_BWD], rZ
-    DLY DLY_AMT
-    jmp !move
+    cmp rA, 6
+    je !dir6
 
-!do_left
-    str [TURN_LEFT], rZ
-    DLY DLY_AMT
-    jmp !move
+    ; else: 7
+    jmp !dir7
 
-!do_right
-    str [TURN_RIGHT], rZ
+
+!dir0
+    str [DIR_0], rZ
+    jmp !apply
+
+!dir1
+    str [DIR_45], rZ
+    jmp !apply
+
+!dir2
+    str [DIR_90], rZ
+    jmp !apply
+
+!dir3
+    str [DIR_135], rZ
+    jmp !apply
+
+!dir4
+    str [DIR_180], rZ
+    jmp !apply
+
+!dir5
+    str [DIR_225], rZ
+    jmp !apply
+
+!dir6
+    str [DIR_270], rZ
+    jmp !apply
+
+!dir7
+    str [DIR_315], rZ
+    ; fall through
+
+!apply
+    set rB, FULL_THROTTLE
+    str [THROTTLE], rB
+
     DLY DLY_AMT
     jmp !move

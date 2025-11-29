@@ -46,4 +46,8 @@ void drawRotatedCar(Tigr* win, const Car& car);
 void drawHealthBar(Tigr* win, const Car& car); 
 bool rotatedInBounds(const Car& car, float nx, float ny, float angle);
 
+static void projectOntoAxis(const float px[4], const float py[4],
+                            float ax, float ay,
+                            float &minProj, float &maxProj);
+bool checkCarCollision(const Car &a, const Car &b);
 #endif

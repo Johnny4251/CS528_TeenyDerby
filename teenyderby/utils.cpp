@@ -291,3 +291,52 @@ void drawHealthBar(Tigr* win, const Car& car)
              barHeight + 2,
              border);
 }
+
+// Projects set of points onto axis and return min/max
+static void projectOntoAxis(const float px[4], const float py[4],
+                            float ax, float ay,
+                            float &minProj, float &maxProj)
+{
+    minProj = maxProj = px[0] * ax + py[0] * ay;
+    for (int i = 1; i < 4; i++) {
+        float proj = px[i] * ax + py[i] * ay;
+        if (proj < minProj) minProj = proj;
+        if (proj > maxProj) maxProj = proj;
+    }
+}
+
+// Returns true if rotated cars overlap
+bool checkCarCollision(const Car &a, const Car &b)
+{
+    float ax[4], ay[4];
+    float bx[4], by[4];
+
+    getRotatedCorners(a.x, a.y, a.w, a.h, a.angle, ax, ay);
+    getRotatedCorners(b.x, b.y, b.w, b.h, b.angle, bx, by);
+
+    
+    float axes[4][2];
+    axes[0][0] = ax[1] - ax[0]; axes[0][1] = ay[1] - ay[0];
+    axes[1][0] = ax[3] - ax[0]; axes[1][1] = ay[3] - ay[0];
+    axes[2][0] = bx[1] - bx[0]; axes[2][1] = by[1] - by[0];
+    axes[3][0] = bx[3] - bx[0]; axes[3][1] = by[3] - by[0];
+
+    for (int i = 0; i < 4; i++) {
+        float axx = axes[i][0];
+        float ayy = axes[i][1];
+
+        
+        float len = sqrtf(axx * axx + ayy * ayy);
+        axx /= len; ayy /= len;
+
+        float minA, maxA, minB, maxB;
+        projectOntoAxis(ax, ay, axx, ayy, minA, maxA);
+        projectOntoAxis(bx, by, axx, ayy, minB, maxB);
+
+        
+        if (maxA < minB || maxB < minA)
+            return false;     
+    }
+
+    return true;               
+}
