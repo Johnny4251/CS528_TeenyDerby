@@ -32,7 +32,6 @@ int main() {
         tigrClear(win, tigrRGB(30,30,30));
 
         for (size_t i = 0; i < agents.size(); i++) {
-            tny_clock(&agents[i]);
             DerbyState* state = (DerbyState*)agents[i].ex_data;
             if (g_hitCooldown[i] > 0)
                 g_hitCooldown[i]--;
@@ -42,6 +41,15 @@ int main() {
             int ny = cars[i].y;
 
             if (state) {
+                if(state->health <= 1) {
+                    state->health = 1;
+                    state->isDead = true;
+                } 
+
+                if(state->isDead == false) {
+                    tny_clock(&agents[i]);
+                }
+
                 uint8_t dir = state->direction & 7;
                 float angle = dir * (3.14159265f / 4.0f);
                 cars[i].angle = angle;

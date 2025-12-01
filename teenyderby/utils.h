@@ -28,7 +28,9 @@ struct DerbyState {
     uint8_t sensor_target;
 
     int16_t speed;
-    uint8_t health;
+    int8_t health;
+
+    bool isDead;
 };
 
 extern DerbyState*       g_derby_state;
