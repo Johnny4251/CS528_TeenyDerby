@@ -156,6 +156,7 @@ void drawRotatedCar(Tigr* win, const Car& car)
     float s = sinf(car.angle);
 
     // 4 rectangle corners relative to the center
+    // Top-left, Top-right, Bottom-right, Bottom-left
     float rx[4] = { -hw,  hw,  hw, -hw };
     float ry[4] = { -hh, -hh,  hh,  hh };
 
@@ -177,6 +178,19 @@ void drawRotatedCar(Tigr* win, const Car& car)
     // Draw two triangles that form the rectangle
     tigrFillTriangle(win, px[0], py[0], px[1], py[1], px[2], py[2], car.color);
     tigrFillTriangle(win, px[0], py[0], px[2], py[2], px[3], py[3], car.color);
+
+
+    // FRONT EDGE = between corners 0 → 1
+    tigrLine(win,
+        (int)px[1], (int)py[1],
+        (int)px[2], (int)py[2],
+        tigrRGB(255, 0, 0));  // red
+
+    // BACK EDGE = between corners 3 → 2
+    tigrLine(win,
+        (int)px[0], (int)py[0],
+        (int)px[3], (int)py[3],
+        tigrRGB(0, 0, 255));  // blue
 }
 
 void getRotatedCorners(int x, int y, int w, int h, float angle, float px[4], float py[4]) {
@@ -276,4 +290,53 @@ void drawHealthBar(Tigr* win, const Car& car)
              barWidth  + 2,
              barHeight + 2,
              border);
+}
+
+// Projects set of points onto axis and return min/max
+static void projectOntoAxis(const float px[4], const float py[4],
+                            float ax, float ay,
+                            float &minProj, float &maxProj)
+{
+    minProj = maxProj = px[0] * ax + py[0] * ay;
+    for (int i = 1; i < 4; i++) {
+        float proj = px[i] * ax + py[i] * ay;
+        if (proj < minProj) minProj = proj;
+        if (proj > maxProj) maxProj = proj;
+    }
+}
+
+// Returns true if rotated cars overlap
+bool checkCarCollision(const Car &a, const Car &b)
+{
+    float ax[4], ay[4];
+    float bx[4], by[4];
+
+    getRotatedCorners(a.x, a.y, a.w, a.h, a.angle, ax, ay);
+    getRotatedCorners(b.x, b.y, b.w, b.h, b.angle, bx, by);
+
+    
+    float axes[4][2];
+    axes[0][0] = ax[1] - ax[0]; axes[0][1] = ay[1] - ay[0];
+    axes[1][0] = ax[3] - ax[0]; axes[1][1] = ay[3] - ay[0];
+    axes[2][0] = bx[1] - bx[0]; axes[2][1] = by[1] - by[0];
+    axes[3][0] = bx[3] - bx[0]; axes[3][1] = by[3] - by[0];
+
+    for (int i = 0; i < 4; i++) {
+        float axx = axes[i][0];
+        float ayy = axes[i][1];
+
+        
+        float len = sqrtf(axx * axx + ayy * ayy);
+        axx /= len; ayy /= len;
+
+        float minA, maxA, minB, maxB;
+        projectOntoAxis(ax, ay, axx, ayy, minA, maxA);
+        projectOntoAxis(bx, by, axx, ayy, minB, maxB);
+
+        
+        if (maxA < minB || maxB < minA)
+            return false;     
+    }
+
+    return true;               
 }

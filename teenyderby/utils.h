@@ -28,7 +28,9 @@ struct DerbyState {
     uint8_t sensor_target;
 
     int16_t speed;
-    uint8_t health;
+    int8_t health;
+
+    bool isDead;
 };
 
 extern DerbyState*       g_derby_state;
@@ -46,4 +48,8 @@ void drawRotatedCar(Tigr* win, const Car& car);
 void drawHealthBar(Tigr* win, const Car& car); 
 bool rotatedInBounds(const Car& car, float nx, float ny, float angle);
 
+static void projectOntoAxis(const float px[4], const float py[4],
+                            float ax, float ay,
+                            float &minProj, float &maxProj);
+bool checkCarCollision(const Car &a, const Car &b);
 #endif
