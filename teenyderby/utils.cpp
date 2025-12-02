@@ -81,7 +81,6 @@ void randomize_cars(std::vector<Car> &cars, std::vector<teenyat> &agents) {
     }
 }
 
-
 void tigrFillTriangle(Tigr* win,
                       float x1, float y1,
                       float x2, float y2,
