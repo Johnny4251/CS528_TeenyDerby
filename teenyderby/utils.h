@@ -44,6 +44,9 @@ extern std::vector<Car>* g_cars;
 extern float g_speeds[AGENT_MAX_CNT];
 extern int   g_hitCooldown[AGENT_MAX_CNT];
 extern Tigr* g_carSprite;
+extern float g_scoreRowY[AGENT_MAX_CNT];
+extern bool  g_scoreRowInit;
+
 
 extern const float MAX_SPEED;
 extern const float SPEED_SMOOTHING;

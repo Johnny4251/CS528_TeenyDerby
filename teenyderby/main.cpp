@@ -1,11 +1,19 @@
 #include <iostream>
 #include <vector>
+#include <string>
 #include <ctime>
 #include <cmath>
 
 #include "tigr.h"
 #include "utils.h"
 #include "bus.h"
+#include "menu.h"
+#include "game.h"
+
+enum GameMode {
+    MODE_MENU,
+    MODE_GAME
+};
 
 int main() {
     srand(time(NULL));
@@ -18,56 +26,46 @@ int main() {
         return 1;
     }
 
-    std::vector<std::string> bin_files;
-    get_binaries(bin_files);
+    std::vector<std::string> all_bin_files;
+    get_binaries(all_bin_files);
 
-    DerbyState derby_state[AGENT_MAX_CNT] = {};
-    std::vector<teenyat> agents;
-    load_agents(bin_files, agents, derby_state);
-
-    std::vector<Car> cars;
-    randomize_cars(cars, agents, bin_files);
-
-    while (!tigrClosed(win)) {
-        tigrClear(win, tigrRGB(30,30,30));
-
-        for (size_t i = 0; i < agents.size(); i++) {
-
-            DerbyState* state = (DerbyState*)agents[i].ex_data;
-
-            updateHitCooldown(i);
-            updateAgentState(agents[i], state);
-
-            float angle = computeDirectionAngle(state);
-            cars[i].angle = angle;
-
-            float newSpeed = computeSmoothedSpeed(i, state);
-            g_speeds[i] = newSpeed;
-            state->speed = (int16_t)std::round(std::fabs(newSpeed));
-
-            int nx, ny;
-            computeNextPosition(cars[i], angle, newSpeed, nx, ny);
-
-            int collidedWith;
-            bool blocked = detectCollision(cars, i, nx, ny, collidedWith);
-
-            if (blocked)
-                applyCollisionDamage(i, collidedWith);
-
-            applyMovementOrClamp(cars[i], state, blocked, nx, ny, i);
-
-            drawRotatedCar(win, cars[i]);
-            drawCarSprite(win, cars[i]);
-            drawNameTag(win, cars[i]);
-            drawHealthBar(win, cars[i]);
-        }
-
-        drawScoreboard(win);
-        drawTitleBar(win);
-        tigrUpdate(win);
+    if (all_bin_files.empty()) {
+        printf("no agents/*.bin found\n");
+        return 1;
     }
 
+    MenuState menu;
+    initMenu(menu, all_bin_files);
 
+    GameState game;
+    game.active = false;
+
+    GameMode mode = MODE_MENU;
+    bool running = true;
+
+    while (running) {
+        if (mode == MODE_MENU) {
+            MenuResult r = runMenuFrame(win, menu);
+            if (r.quit) {
+                running = false;
+            } else if (r.startGame) {
+                gameInit(game, r.selectedBins);
+                mode = MODE_GAME;
+            }
+        } else if (mode == MODE_GAME) {
+            bool backToMenu = gameFrame(win, game);
+            if (backToMenu) {
+                mode = MODE_MENU;
+            }
+        }
+
+        tigrUpdate(win);
+        if (tigrClosed(win))
+            running = false;
+    }
+
+    if (g_carSprite)
+        tigrFree(g_carSprite);
     tigrFree(win);
     return 0;
 }

@@ -16,8 +16,8 @@ std::vector<Car>* g_cars              = nullptr;
 float g_speeds[AGENT_MAX_CNT] = {0.0f};
 int   g_hitCooldown[AGENT_MAX_CNT] = {0};
 Tigr* g_carSprite = nullptr;
-static float g_scoreRowY[AGENT_MAX_CNT] = {0.0f};
-static bool  g_scoreRowInit = false;
+float g_scoreRowY[AGENT_MAX_CNT] = {0.0f};
+bool  g_scoreRowInit = false;
 
 const float MAX_SPEED        = CAR_VERTICAL_MOVE_RATE;
 const float SPEED_SMOOTHING  = 0.08f;
