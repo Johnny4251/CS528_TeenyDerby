@@ -1,5 +1,5 @@
 .const RAND      0x8010
-.const DLY_AMT   25
+.const DLY_AMT   5
 
 .const THROTTLE  0x9000
 
@@ -18,7 +18,7 @@
     ;cut throttle
 
     lod rA, [RAND]
-    mod rA, 35   
+    mod rA, 100   
 ;    set rA, 25
     str [THROTTLE], rA
 
@@ -83,8 +83,12 @@
     ; fall through
 
 !apply
-    set rB, FULL_THROTTLE
-    str [THROTTLE], rB
+    lod rA, [RAND]
+    mod rA, 30
 
     DLY DLY_AMT
+    DLY rA
+
+
+
     jmp !move
