@@ -95,10 +95,10 @@ int main() {
             temp.x = nx;
             temp.y = ny;
             
-            if (!in_bounds)
+            if (!in_bounds) {
                 blocked = true;
-
-                int collidedWith = -1;
+            }
+            int collidedWith = -1;
 
             if (!blocked) {
                 for (size_t j = 0; j < cars.size(); j++) {
@@ -148,6 +148,20 @@ int main() {
                     g_derby_state[attacker].health -= smallDamage;
                     if (g_derby_state[attacker].health < 0) g_derby_state[attacker].health = 0;
                     g_hitCooldown[attacker] = 15;
+                }
+            }
+
+            if (blocked && collidedWith == -1)
+            {
+                float speed = std::fabs(g_speeds[i]);
+
+                int wallDamage = std::max(1, (int)std::round(speed * 0.2f));
+
+                if (g_hitCooldown[i] == 0) {
+                    g_derby_state[i].health -= wallDamage;
+                    if (g_derby_state[i].health < 0)
+                        g_derby_state[i].health = 0;
+                    g_hitCooldown[i] = 10; 
                 }
             }
 
