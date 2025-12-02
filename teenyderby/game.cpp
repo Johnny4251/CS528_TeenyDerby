@@ -30,28 +30,32 @@ bool gameFrame(Tigr* win, GameState& game) {
 
     tigrClear(win, tigrRGB(30, 30, 30));
 
+    bool paused = tigrKeyHeld(win, 'p') || tigrKeyHeld(win, 'P');
+
     for (size_t i = 0; i < game.agents.size(); ++i) {
         DerbyState* state = (DerbyState*)game.agents[i].ex_data;
-        updateHitCooldown((int)i);
-        updateAgentState(game.agents[i], state);
+        if (!paused) {
+            updateHitCooldown((int)i);
+            updateAgentState(game.agents[i], state);
 
-        float angle = computeDirectionAngle(state);
-        game.cars[i].angle = angle;
+            float angle = computeDirectionAngle(state);
+            game.cars[i].angle = angle;
 
-        float newSpeed = computeSmoothedSpeed((int)i, state);
-        g_speeds[i] = newSpeed;
-        state->speed = (int16_t)std::round(std::fabs(newSpeed));
+            float newSpeed = computeSmoothedSpeed((int)i, state);
+            g_speeds[i] = newSpeed;
+            state->speed = (int16_t)std::round(std::fabs(newSpeed));
 
-        int nx, ny;
-        computeNextPosition(game.cars[i], angle, newSpeed, nx, ny);
+            int nx, ny;
+            computeNextPosition(game.cars[i], game.cars[i].angle, newSpeed, nx, ny);
 
-        int collidedWith;
-        bool blocked = detectCollision(game.cars, i, nx, ny, collidedWith);
+            int collidedWith;
+            bool blocked = detectCollision(game.cars, i, nx, ny, collidedWith);
 
-        if (blocked)
-            applyCollisionDamage((int)i, collidedWith);
+            if (blocked)
+                applyCollisionDamage((int)i, collidedWith);
 
-        applyMovementOrClamp(game.cars[i], state, blocked, nx, ny, (int)i);
+            applyMovementOrClamp(game.cars[i], state, blocked, nx, ny, (int)i);
+        }
 
         drawRotatedCar(win, game.cars[i]);
         drawCarSprite(win, game.cars[i]);
@@ -61,6 +65,16 @@ bool gameFrame(Tigr* win, GameState& game) {
 
     drawScoreboard(win);
     drawTitleBar(win);
+
+    if (paused) {
+        const char* pauseMsg = "PAUSED - Hold P to resume";
+        int pw = tigrTextWidth(tfont, pauseMsg);
+        int ph = tigrTextHeight(tfont, pauseMsg);
+        int px = (WIN_W - pw) / 2;
+        int py = 10;
+        tigrFillRect(win, px - 6, py - 3, pw + 12, ph + 6, tigrRGB(0, 0, 0));
+        tigrPrint(win, tfont, px, py, tigrRGB(255, 255, 0), "%s", pauseMsg);
+    }
 
     if (tigrKeyDown(win, TK_TAB))
         return true;

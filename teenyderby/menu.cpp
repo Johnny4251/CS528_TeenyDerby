@@ -3,15 +3,11 @@
 
 static const char* g_puns[] = {
     "Pipeline your contenders into the arena.",
-    "Select cores for maximum cache carnage.",
+    "Cache carnage.",
     "Schedule some out-of-order mayhem.",
     "Pick your favorite branch mispredictors.",
     "Who’s ready to thrash the cache?",
-    "Issue width: unlimited. Mercy: none.",
-    "Tiny RISC rockstars, big CISC energy.",
-    "Overclock the chaos, underclock the mercy.",
     "Load, store, and floor your rivals.",
-    "Speculate wildly, retire gracefully."
 };
 
 static const int   g_numPuns    = (int)(sizeof(g_puns) / sizeof(g_puns[0]));
