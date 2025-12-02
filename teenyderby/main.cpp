@@ -2,7 +2,7 @@
 #include <vector>
 #include <ctime>
 #include <cmath>
-#include <algorithm>   
+
 #include "tigr.h"
 #include "utils.h"
 #include "bus.h"
