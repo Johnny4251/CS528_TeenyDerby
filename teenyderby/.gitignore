@@ -12,6 +12,7 @@ tnasm/tnasm
 lcd/lcd
 edison/edison
 edison/bin_assets.*
+teenyderby
 
 # IDE stuff
 *.dSYM
