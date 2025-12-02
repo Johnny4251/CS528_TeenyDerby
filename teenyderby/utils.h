@@ -37,6 +37,13 @@ extern DerbyState*       g_derby_state;
 extern size_t            g_derby_state_count;
 extern std::vector<Car>* g_cars;
 
+extern float g_speeds[AGENT_MAX_CNT];
+extern int   g_hitCooldown[AGENT_MAX_CNT];
+
+extern const float MAX_SPEED;
+extern const float SPEED_SMOOTHING;
+extern const float IDLE_FRICTION;
+
 void get_binaries(std::vector<std::string> &bin_files);
 void load_agents(const std::vector<std::string>& bin_files,
                  std::vector<teenyat>& agents,
@@ -52,4 +59,14 @@ void projectOntoAxis(const float px[4], const float py[4],
                             float ax, float ay,
                             float &minProj, float &maxProj);
 bool checkCarCollision(const Car &a, const Car &b);
+
+void updateHitCooldown(int idx);
+void updateAgentState(teenyat& agent, DerbyState* state);
+float computeDirectionAngle(const DerbyState* state);
+float computeSmoothedSpeed(int idx, const DerbyState* state);
+void computeNextPosition(const Car& car, float angle, float speed, int& nx, int& ny);
+bool detectCollision(const std::vector<Car>& cars, size_t i, int nx, int ny, int& collidedWith);
+void applyCollisionDamage(int i, int collidedWith);
+void applyMovementOrClamp(Car& car, DerbyState* state, bool blocked, int nx, int ny, int idx);
+
 #endif

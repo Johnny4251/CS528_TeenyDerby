@@ -1,17 +1,23 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <string>
-
+#include <cstdlib>
+#include <algorithm>
 #include "utils.h"
 #include "bus.h"
 #include "teenyat.h"
-#include <cstdlib>
 
 
 DerbyState*       g_derby_state       = nullptr;
 size_t            g_derby_state_count = 0;
 std::vector<Car>* g_cars              = nullptr;
 
+float g_speeds[AGENT_MAX_CNT] = {0.0f};
+int   g_hitCooldown[AGENT_MAX_CNT] = {0};
+
+const float MAX_SPEED        = CAR_VERTICAL_MOVE_RATE;
+const float SPEED_SMOOTHING  = 0.08f;
+const float IDLE_FRICTION    = 0.03f;
 
 void get_binaries(std::vector<std::string> &bin_files) {
     DIR* dir = opendir("agents");
@@ -293,7 +299,7 @@ void drawHealthBar(Tigr* win, const Car& car)
 }
 
 // Projects set of points onto axis and return min/max
-void projectOntoAxis(const float px[4], const float py[4],
+ void projectOntoAxis(const float px[4], const float py[4],
                             float ax, float ay,
                             float &minProj, float &maxProj)
 {
@@ -339,4 +345,139 @@ bool checkCarCollision(const Car &a, const Car &b)
     }
 
     return true;               
+}
+
+void updateHitCooldown(int idx) {
+    if (g_hitCooldown[idx] > 0)
+        g_hitCooldown[idx]--;
+}
+
+void updateAgentState(teenyat& agent, DerbyState* state) {
+    if (!state) return;
+
+    if (state->health <= 1) {
+        state->health = 1;
+        state->isDead = true;
+    }
+
+    if (!state->isDead)
+        tny_clock(&agent);
+}
+
+float computeDirectionAngle(const DerbyState* state) {
+    if (!state) return 0.0f;
+
+    uint8_t dir = state->direction & 7;
+    return dir * (3.14159265f / 4.0f);
+}
+
+void computeNextPosition(const Car& car, float angle, float speed, int& nx, int& ny) {
+    nx = (int)(car.x + cosf(angle) * speed);
+    ny = (int)(car.y + sinf(angle) * speed);
+}
+
+bool detectCollision(const std::vector<Car>& cars, size_t i, int nx, int ny, int& collidedWith) {
+    collidedWith = -1;
+
+    // Wall check
+    if (nx < 0 || ny < 0 || nx + cars[i].w > WIN_W || ny + cars[i].h > WIN_H)
+        return true;
+
+    Car temp = cars[i];
+    temp.x = nx;
+    temp.y = ny;
+
+    // Other cars
+    for (size_t j = 0; j < cars.size(); j++) {
+        if (j == i) continue;
+
+        if (checkCarCollision(temp, cars[j])) {
+            collidedWith = (int)j;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+float computeSmoothedSpeed(int idx, const DerbyState* state) {
+    if (!state) return 0.0f;
+
+    float tval = std::clamp((float)state->throttle, -100.0f, 100.0f);
+    float& currentSpeed = g_speeds[idx];
+
+    float targetSpeed = (tval / 100.0f) * MAX_SPEED;
+    float accel = (targetSpeed - currentSpeed) * SPEED_SMOOTHING;
+    currentSpeed += accel;
+
+    currentSpeed *= 0.995f;
+
+    if (std::fabs(tval) < 5.0f)
+        currentSpeed *= (1.0f - IDLE_FRICTION);
+
+    if (std::fabs(currentSpeed) < 0.02f)
+        currentSpeed = 0.0f;
+
+    currentSpeed = std::clamp(currentSpeed, -MAX_SPEED, MAX_SPEED);
+
+    return currentSpeed;
+}
+
+void applyCollisionDamage(int i, int collidedWith) {
+
+    if (collidedWith != -1) {
+        float speedA = std::fabs(g_speeds[i]);
+        float speedB = std::fabs(g_speeds[collidedWith]);
+
+        int attacker = (speedA > speedB ? i : collidedWith);
+        int victim   = (attacker == i ? collidedWith : i);
+
+        float attackerSpeed = std::max(speedA, speedB);
+
+        int bigDamage   = std::max(1, (int)std::round(attackerSpeed * 2.0f));
+        int smallDamage = std::max(1, (int)std::round(attackerSpeed * 0.6f));
+
+        if (g_hitCooldown[victim] == 0) {
+            g_derby_state[victim].health -= bigDamage;
+            g_derby_state[victim].health = std::max<int>(0, g_derby_state[victim].health);
+            g_hitCooldown[victim] = 15;
+        }
+
+        if (g_hitCooldown[attacker] == 0) {
+            g_derby_state[attacker].health -= smallDamage;
+            g_derby_state[attacker].health = std::max<int>(0, g_derby_state[attacker].health);
+            g_hitCooldown[attacker] = 15;
+        }
+
+        return;
+    }
+
+    // Wall collision
+    float speed = std::fabs(g_speeds[i]);
+    int wallDamage = std::max(1, (int)std::round(speed * 0.2f));
+
+    if (g_hitCooldown[i] == 0) {
+        g_derby_state[i].health -= wallDamage;
+        g_derby_state[i].health = std::max<int>(0, g_derby_state[i].health);
+        g_hitCooldown[i] = 10;
+    }
+}
+
+void applyMovementOrClamp(Car& car, DerbyState* state, bool blocked, int nx, int ny, int idx)
+{
+    if (!blocked) {
+        car.x = nx;
+        car.y = ny;
+        return;
+    }
+
+    g_speeds[idx] = 0.0f;
+    if (state)
+        state->speed = 0;
+
+    if (car.x < 0) car.x = 0;
+    if (car.y < 0) car.y = 0;
+    if (car.x + car.w > WIN_W) car.x = WIN_W - car.w;
+    if (car.y + car.h > WIN_H) car.y = WIN_H - car.h;
 }
