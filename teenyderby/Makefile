@@ -1,6 +1,6 @@
 
 CFLAGS += -I.. -O3
-WFLAGS = -Wall -Wextra -Wpedantic -Wno-unused-parameter
+WFLAGS = -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wno-unused-but-set-variable
 CPPFLAGS += $(CFLAGS) --std=c++17
 EXEC = teenyderby
 

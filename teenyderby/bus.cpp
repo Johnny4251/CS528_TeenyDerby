@@ -94,7 +94,6 @@ void derby_bus_read(teenyat *t, tny_uword addr, tny_word *data, uint16_t *delay)
     case DERBY_SELF_Y_ADDR:
         data->s = (*g_cars)[self_index].y;
         break;
-
     default:
         break;
     }

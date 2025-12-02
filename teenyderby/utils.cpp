@@ -293,7 +293,7 @@ void drawHealthBar(Tigr* win, const Car& car)
 }
 
 // Projects set of points onto axis and return min/max
-static void projectOntoAxis(const float px[4], const float py[4],
+void projectOntoAxis(const float px[4], const float py[4],
                             float ax, float ay,
                             float &minProj, float &maxProj)
 {

@@ -182,9 +182,6 @@ int main() {
                 if (cars[i].y + cars[i].h > WIN_H) cars[i].y = WIN_H - cars[i].h;
             }
             
-
-
-
             drawRotatedCar(win, cars[i]);
             drawHealthBar(win, cars[i]);
 
