@@ -62,6 +62,8 @@ int main() {
             drawHealthBar(win, cars[i]);
         }
 
+        drawScoreboard(win);
+        drawTitleBar(win);
         tigrUpdate(win);
     }
 

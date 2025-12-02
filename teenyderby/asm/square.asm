@@ -73,7 +73,7 @@ set rC, 0
     str [DIR_0], rZ
     lod rA, [SELF_X]
 
-    cmp rA, 600        
+    cmp rA, 500        
     jge !next_dir      
 
     set rB, MAX_ACCEL
@@ -99,7 +99,7 @@ set rC, 0
     str [DIR_180], rZ
     lod rA, [SELF_X]
 
-    cmp rA, 200        
+    cmp rA, 150        
     jle !next_dir
 
     set rB, MAX_ACCEL

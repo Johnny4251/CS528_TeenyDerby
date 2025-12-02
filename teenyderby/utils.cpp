@@ -16,6 +16,8 @@ std::vector<Car>* g_cars              = nullptr;
 float g_speeds[AGENT_MAX_CNT] = {0.0f};
 int   g_hitCooldown[AGENT_MAX_CNT] = {0};
 Tigr* g_carSprite = nullptr;
+static float g_scoreRowY[AGENT_MAX_CNT] = {0.0f};
+static bool  g_scoreRowInit = false;
 
 const float MAX_SPEED        = CAR_VERTICAL_MOVE_RATE;
 const float SPEED_SMOOTHING  = 0.08f;
@@ -194,8 +196,8 @@ void randomize_cars(std::vector<Car> &cars,
         Car c;
         c.w = 32;
         c.h = 16;
-        c.x = rand() % (WIN_W - c.w);
-        c.y = rand() % (WIN_H - c.h);
+        c.x = rand() % (PLAYFIELD_W - c.w);
+        c.y = rand() % (PLAYFIELD_H - c.h);
         c.angle = 0;
         c.color = tigrRGB(rand()%255, rand()%255, rand()%255);
 
@@ -359,8 +361,8 @@ bool rotatedInBounds(const Car& car, float nx, float ny, float angle)
     getRotatedCorners(nx, ny, car.w, car.h, angle, px, py);
 
     for (int i = 0; i < 4; i++) {
-        if (px[i] < 0 || px[i] > WIN_W ||
-            py[i] < 0 || py[i] > WIN_H)
+        if (px[i] < 0 || px[i] > PLAYFIELD_W ||
+            py[i] < 0 || py[i] > PLAYFIELD_H)
             return false;
     }
     return true;
@@ -485,14 +487,18 @@ void updateHitCooldown(int idx) {
 void updateAgentState(teenyat& agent, DerbyState* state) {
     if (!state) return;
 
-    if (state->health <= 1) {
-        state->health = 1;
+    if (state->health > 100)
+        state->health = 100;
+
+    if (state->health <= 0) {
+        state->health = 0;
         state->isDead = true;
     }
 
     if (!state->isDead)
         tny_clock(&agent);
 }
+
 
 float computeDirectionAngle(const DerbyState* state) {
     if (!state) return 0.0f;
@@ -510,7 +516,7 @@ bool detectCollision(const std::vector<Car>& cars, size_t i, int nx, int ny, int
     collidedWith = -1;
     
     // Wall check
-    if (nx < 0 || ny < 0 || nx + cars[i].w > WIN_W || ny + cars[i].h > WIN_H)
+    if (nx < 0 || ny < 0 || nx + cars[i].w > PLAYFIELD_W || ny + cars[i].h > PLAYFIELD_H)
         return true;
 
     Car temp = cars[i];
@@ -608,6 +614,212 @@ void applyMovementOrClamp(Car& car, DerbyState* state, bool blocked, int nx, int
 
     if (car.x < 0) car.x = 0;
     if (car.y < 0) car.y = 0;
-    if (car.x + car.w > WIN_W) car.x = WIN_W - car.w;
-    if (car.y + car.h > WIN_H) car.y = WIN_H - car.h;
+    if (car.x + car.w > PLAYFIELD_W) car.x = PLAYFIELD_W - car.w;
+    if (car.y + car.h > PLAYFIELD_H) car.y = PLAYFIELD_H - car.h;
+}
+
+void drawScoreboard(Tigr* win) {
+    if (!g_cars || !g_derby_state || g_cars->empty())
+        return;
+
+    const int sbX = PLAYFIELD_W;
+    const int sbY = 0;
+    const int sbW = WIN_W - PLAYFIELD_W;
+    const int sbH = PLAYFIELD_H;
+
+    tigrFillRect(win, sbX, sbY, sbW, sbH, tigrRGB(14, 14, 22));
+    tigrRect(win, sbX, sbY, sbW, sbH, tigrRGB(60, 60, 80));
+
+    const int headerH = 22;
+    tigrFillRect(win, sbX, sbY, sbW, headerH, tigrRGB(26, 26, 40));
+    tigrLine(win, sbX, sbY + headerH, sbX + sbW, sbY + headerH, tigrRGB(80, 80, 110));
+
+    tigrPrint(win, tfont, sbX + 8, sbY + 6, tigrRGB(220, 220, 255), "DERBY AGENTS");
+
+    const int rowH    = 34;
+    const int startY  = sbY + headerH + 4;
+    const size_t cnt  = std::min(g_derby_state_count, g_cars->size());
+    if (cnt == 0) return;
+
+    std::vector<int> order(cnt);
+    for (size_t i = 0; i < cnt; ++i)
+        order[i] = (int)i;
+
+    std::sort(order.begin(), order.end(), [](int a, int b) {
+        const DerbyState& sa = g_derby_state[a];
+        const DerbyState& sb = g_derby_state[b];
+
+        if (sa.isDead != sb.isDead)
+            return !sa.isDead && sb.isDead;
+
+        if (sa.health != sb.health)
+            return sa.health > sb.health;
+
+        return sa.id < sb.id;
+    });
+
+    if (!g_scoreRowInit) {
+        for (size_t rank = 0; rank < cnt; ++rank) {
+            int idx = order[rank];
+            g_scoreRowY[idx] = (float)(startY + (int)rank * rowH);
+        }
+        g_scoreRowInit = true;
+    }
+
+    const float SMOOTH = .95f; 
+
+    for (size_t rank = 0; rank < cnt; ++rank)
+    {
+        int idx = order[rank];
+        const DerbyState& st = g_derby_state[idx];
+        const Car&        car = (*g_cars)[idx];
+
+        float targetY = (float)(startY + (int)rank * rowH);
+        float currentY = g_scoreRowY[idx];
+        currentY += (targetY - currentY) * SMOOTH;
+        g_scoreRowY[idx] = currentY;
+
+        int boxY = (int)currentY;
+        if (boxY + rowH > sbY + sbH - 4)
+            break; 
+
+        bool evenRow = (rank % 2 == 0);
+        TPixel boxBg     = evenRow ? tigrRGB(30, 30, 42) : tigrRGB(24, 24, 36);
+        TPixel boxBorder = tigrRGB(70, 70, 100);
+
+        if (st.isDead) {
+            boxBg     = tigrRGB(18, 18, 22);
+            boxBorder = tigrRGB(110, 50, 50);
+        }
+
+        tigrFillRect(win, sbX + 4, boxY, sbW - 8, rowH - 4, boxBg);
+        tigrRect(win, sbX + 4, boxY, sbW - 8, rowH - 4, boxBorder);
+
+        const int iconSize = 20;
+        const int iconX = sbX + 8;
+        const int iconY = boxY + (rowH - iconSize) / 2;
+
+        if (g_carSprite) {
+            int srcW = std::min(iconSize, g_carSprite->w);
+            int srcH = std::min(iconSize, g_carSprite->h);
+            int srcX = (g_carSprite->w - srcW) / 2;
+            int srcY = (g_carSprite->h - srcH) / 2;
+
+            tigrBlit(win, g_carSprite, iconX, iconY, srcX, srcY, srcW, srcH);
+        } else {
+            tigrFillRect(win, iconX, iconY, iconSize, iconSize, car.color);
+        }
+
+        int textX = iconX + iconSize + 6;
+        int textY = boxY + 6;
+
+        const char* name = car.name.empty() ? "Agent" : car.name.c_str();
+        TPixel nameColor = st.isDead ? tigrRGB(220, 120, 120)
+                                     : tigrRGB(235, 235, 255);
+
+        tigrPrint(win, tfont, textX, textY, nameColor, "%s", name);
+
+        int hp = std::max(0, (int)st.health);
+        float ratio = std::clamp(hp / 100.0f, 0.0f, 1.0f);
+
+        int barW = sbW - (textX - sbX) - 10;
+        int barH = 5;
+        int barX = textX;
+        int barY = boxY + rowH - barH - 6;
+
+        TPixel bgBar = tigrRGB(40, 40, 55);
+        TPixel fgBar = tigrRGB(
+            (int)(255 * (1.0f - ratio)),
+            (int)(255 * ratio),
+            60
+        );
+
+        tigrFillRect(win, barX, barY, barW, barH, bgBar);
+        int filledW = (int)(barW * ratio);
+        if (filledW > 0)
+            tigrFillRect(win, barX, barY, filledW, barH, fgBar);
+    }
+}
+
+
+void drawTitleBar(Tigr* win)
+{
+    const int barY = PLAYFIELD_H;
+    const int barH = WIN_H - PLAYFIELD_H;
+
+    tigrFillRect(win, 0, barY, WIN_W, barH, tigrRGB(16, 16, 28));
+    tigrRect(win, 0, barY, WIN_W, barH, tigrRGB(80, 80, 130));
+
+    const char* title = "TeenyDerby";
+
+    int baseW = tigrTextWidth(tfont, title);
+    int baseH = tigrTextHeight(tfont, title);
+
+    const int scale = 2;
+
+    int scaledW = baseW * scale;
+    int scaledH = baseH * scale;
+
+    int tx = (WIN_W - scaledW) / 2;
+    int ty = barY + (barH - scaledH) / 2;
+
+    Tigr* tmp = tigrBitmap(baseW, baseH);
+    if (!tmp)
+        return;
+
+    int total = baseW * baseH;
+    for (int i = 0; i < total; ++i)
+    {
+        tmp->pix[i].r = 0;
+        tmp->pix[i].g = 0;
+        tmp->pix[i].b = 0;
+        tmp->pix[i].a = 0;
+    }
+
+    tigrPrint(tmp, tfont, 0, 0, tigrRGB(255, 255, 255), "%s", title);
+
+    for (int y = 0; y < baseH; ++y)
+    {
+        for (int x = 0; x < baseW; ++x)
+        {
+            TPixel p = tmp->pix[y * baseW + x];
+            if (p.a == 0)
+                continue;
+
+            int dstX0 = tx + x * scale;
+            int dstY0 = ty + y * scale;
+            for (int oy = 0; oy < scale; ++oy)
+            {
+                int dy = dstY0 + oy;
+                if (dy < 0 || dy >= win->h) continue;
+
+                for (int ox = 0; ox < scale; ++ox)
+                {
+                    int dx = dstX0 + ox;
+                    if (dx < 0 || dx >= win->w) continue;
+                    win->pix[dy * win->w + dx] = p;
+                }
+            }
+        }
+    }
+
+    tigrFree(tmp);
+
+    if (g_derby_state && g_derby_state_count > 0) {
+        int alive = 0;
+        for (size_t i = 0; i < g_derby_state_count; ++i)
+            if (!g_derby_state[i].isDead)
+                alive++;
+
+        char buf[64];
+        snprintf(buf, sizeof(buf), "Alive: %d / %zu", alive, g_derby_state_count);
+
+        int textW = tigrTextWidth(tfont, buf);
+        int textH = tigrTextHeight(tfont, buf);
+
+        int ax = WIN_W - textW - 8;
+        int ay = barY + (barH - textH) / 2;
+
+        tigrPrint(win, tfont, ax, ay, tigrRGB(220, 220, 240), "%s", buf);
+    }
 }

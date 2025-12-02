@@ -8,10 +8,13 @@
 #include <cmath>
 
 #define AGENT_MAX_CNT 16
-#define WIN_W 800
-#define WIN_H 600
+#define WIN_W 850
+#define WIN_H 650
 
-#define CAR_VERTICAL_MOVE_RATE   6
+#define PLAYFIELD_W 700
+#define PLAYFIELD_H 600
+
+#define CAR_VERTICAL_MOVE_RATE   4
 
 struct Car {
     int x, y;
@@ -112,5 +115,11 @@ void applyCollisionDamage(int i, int collidedWith);
 
 // Moves car to new position or clamps to arena while resetting speed.
 void applyMovementOrClamp(Car& car, DerbyState* state, bool blocked, int nx, int ny, int idx);
+
+// Draws the sidebar with agent names, health, and icon.
+void drawScoreboard(Tigr* win);
+
+// Draws the bottom title/footer bar.
+void drawTitleBar(Tigr* win);
 
 #endif
