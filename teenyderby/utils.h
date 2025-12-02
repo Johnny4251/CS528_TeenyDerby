@@ -39,10 +39,20 @@ extern std::vector<Car>* g_cars;
 
 extern float g_speeds[AGENT_MAX_CNT];
 extern int   g_hitCooldown[AGENT_MAX_CNT];
+extern Tigr* g_carSprite;
 
 extern const float MAX_SPEED;
 extern const float SPEED_SMOOTHING;
 extern const float IDLE_FRICTION;
+
+// Author: William Confer
+void tigrBlitCenteredRotate(Tigr *dst, Tigr *src,
+                            int dx, int dy,
+                            int sx, int sy,
+                            int sw, int sh,
+                            float angle);
+
+void drawCarSprite(Tigr* win, const Car& car);                    
 
 // Collects all .tny binary filenames into bin_files.
 void get_binaries(std::vector<std::string> &bin_files);

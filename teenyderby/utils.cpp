@@ -7,6 +7,7 @@
 #include "bus.h"
 #include "teenyat.h"
 
+#define TIGR_BLEND_ALPHA(C, A, B) (unsigned char)(((C) * (A) + (B) * (255 - (A))) / 255)
 
 DerbyState*       g_derby_state       = nullptr;
 size_t            g_derby_state_count = 0;
@@ -14,10 +15,111 @@ std::vector<Car>* g_cars              = nullptr;
 
 float g_speeds[AGENT_MAX_CNT] = {0.0f};
 int   g_hitCooldown[AGENT_MAX_CNT] = {0};
+Tigr* g_carSprite = nullptr;
 
 const float MAX_SPEED        = CAR_VERTICAL_MOVE_RATE;
 const float SPEED_SMOOTHING  = 0.08f;
 const float IDLE_FRICTION    = 0.03f;
+
+/* Author: William Confer */
+void tigrBlitCenteredRotate(Tigr *dst, Tigr *src,
+                            int dx, int dy,
+                            int sx, int sy,
+                            int sw, int sh,
+                            float angle)
+{
+    // --- Angle Normalization (Toroidal) ---
+    angle = fmodf(angle, 360.0f);
+    if (angle < 0) angle += 360.0f;
+    float rad = angle * (float)M_PI / 180.0f;
+
+    // --- Inverse Rotation Matrix Components ---
+    float c = cosf(rad); // cos(-rad) = cos(rad)
+    float s = sinf(rad); // sin(-rad) = -sin(rad)
+
+    // --- Source Center ---
+    float src_cx = sw / 2.0f;
+    float src_cy = sh / 2.0f;
+
+    // --- Destination Bounding Box ---
+    float hsw = sw / 2.0f;
+    float hsh = sh / 2.0f;
+    float max_dist = sqrtf(hsw * hsw + hsh * hsh);
+
+    int dst_x_min = (int)floorf(dx - max_dist);
+    int dst_y_min = (int)floorf(dy - max_dist);
+    int dst_x_max = (int)ceilf(dx + max_dist);
+    int dst_y_max = (int)ceilf(dy + max_dist);
+
+    // Clamp to bitmap bounds
+    if (dst_x_min < 0) dst_x_min = 0;
+    if (dst_y_min < 0) dst_y_min = 0;
+    if (dst_x_max > dst->w) dst_x_max = dst->w;
+    if (dst_y_max > dst->h) dst_y_max = dst->h;
+
+    // --- Iterate Pixels ---
+    for (int y = dst_y_min; y < dst_y_max; y++)
+    {
+        for (int x = dst_x_min; x < dst_x_max; x++)
+        {
+            // Pixel relative to center
+            float p_x = x - dx;
+            float p_y = y - dy;
+
+            // Inverse rotation → source space
+            float s_x = p_x * c + p_y * s;
+            float s_y = p_x * -s + p_y * c;
+
+            // Convert to source bitmap coords
+            int src_map_x = sx + (int)floorf(s_x + src_cx);
+            int src_map_y = sy + (int)floorf(s_y + src_cy);
+
+            // Bounds check
+            if (src_map_x >= sx && src_map_x < sx + sw &&
+                src_map_y >= sy && src_map_y < sy + sh)
+            {
+                TPixel src_pix = src->pix[src_map_x + src_map_y * src->w];
+                TPixel *dst_pix = &dst->pix[x + y * dst->w];
+
+                // Transparency cases
+                if (src_pix.a == 0)
+                    continue;
+
+                if (src_pix.a == 255)
+                {
+                    *dst_pix = src_pix;
+                }
+                else
+                {
+                    int A = src_pix.a;
+                    dst_pix->r = TIGR_BLEND_ALPHA(src_pix.r, A, dst_pix->r);
+                    dst_pix->g = TIGR_BLEND_ALPHA(src_pix.g, A, dst_pix->g);
+                    dst_pix->b = TIGR_BLEND_ALPHA(src_pix.b, A, dst_pix->b);
+                    dst_pix->a = 255;
+                }
+            }
+        }
+    }
+}
+
+void drawCarSprite(Tigr* win, const Car& car) {
+    if (!g_carSprite) return;
+
+    int dx = (int)(car.x + car.w / 2.0f);
+    int dy = (int)(car.y + car.h / 2.0f);
+
+    int sw = g_carSprite->w;
+    int sh = g_carSprite->h;
+
+    tigrBlitCenteredRotate(
+        win,
+        g_carSprite,
+        dx, dy,    
+        0, 0,        
+        sw, sh,      
+        car.angle * 180.0f / 3.14159265f 
+    );
+}
 
 void get_binaries(std::vector<std::string> &bin_files) {
     DIR* dir = opendir("agents");

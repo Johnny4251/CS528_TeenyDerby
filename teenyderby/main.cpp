@@ -11,6 +11,12 @@ int main() {
     srand(time(NULL));
 
     Tigr* win = tigrWindow(WIN_W, WIN_H, "Teeny Derby", TIGR_FIXED);
+    g_carSprite = tigrLoadImage("car.png");
+    if (!g_carSprite) {
+        printf("could not find car.png\n");
+        printf("exiting...\n");
+        return 1;
+    }
 
     std::vector<std::string> bin_files;
     get_binaries(bin_files);
@@ -51,6 +57,7 @@ int main() {
             applyMovementOrClamp(cars[i], state, blocked, nx, ny, i);
 
             drawRotatedCar(win, cars[i]);
+            drawCarSprite(win, cars[i]);
             drawHealthBar(win, cars[i]);
         }
 
