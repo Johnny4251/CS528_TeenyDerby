@@ -102,6 +102,22 @@ void tigrBlitCenteredRotate(Tigr *dst, Tigr *src,
     }
 }
 
+void drawNameTag(Tigr* win, const Car& car) {
+    if (car.name.empty()) return;
+
+    float cx = car.x + car.w / 2.0f;
+    float cy = car.y - 12; 
+
+    int textW = tigrTextWidth(tfont, car.name.c_str());
+    int textH = tigrTextHeight(tfont, car.name.c_str());
+
+    int tx = (int)(cx - textW / 2);
+    int ty = (int)(cy - textH);
+
+    tigrFillRect(win, tx - 2, ty - 1, textW + 4, textH + 2, tigrRGB(0,0,0));
+    tigrPrint(win, tfont, tx, ty, tigrRGB(255,255,255), "%s", car.name.c_str());
+}
+
 void drawCarSprite(Tigr* win, const Car& car) {
     if (!g_carSprite) return;
 
@@ -138,7 +154,6 @@ void get_binaries(std::vector<std::string> &bin_files) {
     closedir(dir);
 }
 
-
 void load_agents(const std::vector<std::string>& bin_files,
                  std::vector<teenyat>& agents,
                  DerbyState* derby_state)
@@ -168,9 +183,13 @@ void load_agents(const std::vector<std::string>& bin_files,
 }
 
 
-void randomize_cars(std::vector<Car> &cars, std::vector<teenyat> &agents) {
+void randomize_cars(std::vector<Car> &cars,
+                    const std::vector<teenyat> &agents,
+                    const std::vector<std::string> &bin_files)
+{
     g_cars = &cars;
     cars.clear();
+
     for (size_t i = 0; i < agents.size(); ++i) {
         Car c;
         c.w = 32;
@@ -179,9 +198,19 @@ void randomize_cars(std::vector<Car> &cars, std::vector<teenyat> &agents) {
         c.y = rand() % (WIN_H - c.h);
         c.angle = 0;
         c.color = tigrRGB(rand()%255, rand()%255, rand()%255);
+
+        std::string full = bin_files[i];
+        size_t slash = full.find_last_of("/\\");
+        size_t dot   = full.find_last_of('.');
+        if (dot == std::string::npos) dot = full.size();
+        if (slash == std::string::npos) slash = 0; else slash++;
+
+        c.name = full.substr(slash, dot - slash);
+
         cars.push_back(c);
     }
 }
+
 
 void tigrFillTriangle(Tigr* win,
                       float x1, float y1,
@@ -479,7 +508,7 @@ void computeNextPosition(const Car& car, float angle, float speed, int& nx, int&
 
 bool detectCollision(const std::vector<Car>& cars, size_t i, int nx, int ny, int& collidedWith) {
     collidedWith = -1;
-
+    
     // Wall check
     if (nx < 0 || ny < 0 || nx + cars[i].w > WIN_W || ny + cars[i].h > WIN_H)
         return true;

@@ -26,7 +26,7 @@ int main() {
     load_agents(bin_files, agents, derby_state);
 
     std::vector<Car> cars;
-    randomize_cars(cars, agents);
+    randomize_cars(cars, agents, bin_files);
 
     while (!tigrClosed(win)) {
         tigrClear(win, tigrRGB(30,30,30));
@@ -58,6 +58,7 @@ int main() {
 
             drawRotatedCar(win, cars[i]);
             drawCarSprite(win, cars[i]);
+            drawNameTag(win, cars[i]);
             drawHealthBar(win, cars[i]);
         }
 

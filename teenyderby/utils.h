@@ -7,7 +7,7 @@
 #include <string>
 #include <cmath>
 
-#define AGENT_MAX_CNT 8
+#define AGENT_MAX_CNT 16
 #define WIN_W 800
 #define WIN_H 600
 
@@ -18,6 +18,7 @@ struct Car {
     int w, h;
     float angle;
     TPixel color;
+    std::string name;
 };
 
 struct DerbyState {
@@ -52,7 +53,11 @@ void tigrBlitCenteredRotate(Tigr *dst, Tigr *src,
                             int sw, int sh,
                             float angle);
 
-void drawCarSprite(Tigr* win, const Car& car);                    
+// Draw car image to the car                            
+void drawCarSprite(Tigr* win, const Car& car);        
+
+// Draw namne tag above car
+void drawNameTag(Tigr* win, const Car& car);
 
 // Collects all .tny binary filenames into bin_files.
 void get_binaries(std::vector<std::string> &bin_files);
@@ -63,7 +68,9 @@ void load_agents(const std::vector<std::string>& bin_files,
                  DerbyState* derby_state);
 
 // Randomizes initial car positions/colors based on agents.
-void randomize_cars(std::vector<Car> &cars, std::vector<teenyat> &agents);
+void randomize_cars(std::vector<Car> &cars,
+                    const std::vector<teenyat> &agents,
+                    const std::vector<std::string> &bin_files);
 
 // Draws a rotated car sprite based on its angle & position.
 void drawRotatedCar(Tigr* win, const Car& car);

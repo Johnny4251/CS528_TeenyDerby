@@ -51,7 +51,7 @@
 .const SELF_Y          0x9035
  
 
-.const MAX_ACCEL 100
+.const MAX_ACCEL 75
 .const DLY_AMT   20
 
 set rC, 0       
