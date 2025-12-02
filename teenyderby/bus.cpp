@@ -18,7 +18,6 @@ void derby_bus_read(teenyat *t, tny_uword addr, tny_word *data, uint16_t *delay)
 
     auto get_target_index = [&]() -> int {
         uint8_t id = self->sensor_target;
-        if (id >= g_derby_state_count) return -1;
         return id;
     };
 
@@ -114,16 +113,24 @@ void derby_bus_write(teenyat *t, tny_uword addr, tny_word data, uint16_t *delay)
         state->throttle = data.s;
         break;
 
-    case DERBY_SENSOR_TARGET_ADDR:
-        if (data.s < 0) data.s = 0;
-        if (data.s > 7) data.s = 7;
-        state->sensor_target = data.s;
+    case DERBY_SENSOR_TARGET_ADDR: {
+        if (g_derby_state_count == 0) {
+            state->sensor_target = 0;
+            break;
+        }
+
+        int raw = data.u;                       
+        uint8_t wrapped = raw % g_derby_state_count;
+
+        state->sensor_target = wrapped;
         break;
+    }
 
     default:
         if (addr >= DERBY_DIR_BASE_ADDR && addr <= DERBY_DIR_MAX_ADDR) {
             state->direction = addr - DERBY_DIR_BASE_ADDR;
         }
         break;
+
     }
 }
