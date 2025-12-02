@@ -540,8 +540,18 @@ bool detectCollision(const std::vector<Car>& cars, size_t i, int nx, int ny, int
 float computeSmoothedSpeed(int idx, const DerbyState* state) {
     if (!state) return 0.0f;
 
-    float tval = std::clamp((float)state->throttle, -100.0f, 100.0f);
     float& currentSpeed = g_speeds[idx];
+
+    if (state->isDead) {
+        currentSpeed *= 0.3f;  
+
+        if (std::fabs(currentSpeed) < 0.05f)
+            currentSpeed = 0.0f;
+
+        return currentSpeed;
+    }
+
+    float tval = std::clamp((float)state->throttle, -100.0f, 100.0f);
 
     float targetSpeed = (tval / 100.0f) * MAX_SPEED;
     float accel = (targetSpeed - currentSpeed) * SPEED_SMOOTHING;
@@ -559,6 +569,7 @@ float computeSmoothedSpeed(int idx, const DerbyState* state) {
 
     return currentSpeed;
 }
+
 
 void applyCollisionDamage(int i, int collidedWith) {
 
