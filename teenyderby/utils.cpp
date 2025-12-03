@@ -9,6 +9,10 @@
 
 #define TIGR_BLEND_ALPHA(C, A, B) (unsigned char)(((C) * (A) + (B) * (255 - (A))) / 255)
 
+// Sprite cache to prevent memory leaks
+static Tigr* g_spriteCache[9] = {nullptr};
+static bool g_spriteCacheInit = false;
+
 DerbyState*       g_derby_state       = nullptr;
 size_t            g_derby_state_count = 0;
 std::vector<Car>* g_cars              = nullptr;
@@ -119,45 +123,48 @@ void drawNameTag(Tigr* win, const Car& car) {
     tigrPrint(win, tfont, tx, ty, tigrRGB(255,255,255), "%s", car.name.c_str());
 }
 
-Tigr* get_sprite (Car &car) {
-    Tigr* carSprite = nullptr;
-    switch(car.type) {
-        case CAR_TYPE_CONVERTABLE:
-            carSprite = tigrLoadImage("sprites/convertable.png");
-            break;
-        case CAR_TYPE_CORVETTE:
-            carSprite = tigrLoadImage("sprites/corvette.png");
-            break;
-        case CAR_TYPE_GARBAGETRUCK:
-            carSprite = tigrLoadImage("sprites/garbagetruck.png");
-            break;
-        case CAR_TYPE_JEEP:
-            carSprite = tigrLoadImage("sprites/jeep.png");
-            break;
-        case CAR_TYPE_MOTORCYCLE:
-            carSprite = tigrLoadImage("sprites/motorcycle.png");
-            break;
-        case CAR_TYPE_MUSTANG:
-            carSprite = tigrLoadImage("sprites/mustang.png");
-            break;
-        case CAR_TYPE_STATIONWAGON:
-            carSprite = tigrLoadImage("sprites/stationwagon.png");
-            break;
-        case CAR_TYPE_TOWTRUCK:
-            carSprite = tigrLoadImage("sprites/towtruck.png");
-            break;
-        default:
-            carSprite = tigrLoadImage("sprites/corvette.png");
-            break;
+void initSpriteCache() {
+    if (g_spriteCacheInit)
+        return;
+    
+    const char* sprite_files[] = {
+        "sprites/convertable.png", "sprites/corvette.png", "sprites/garbagetruck.png",
+        "sprites/jeep.png", "sprites/motorcycle.png", "sprites/mustang.png",
+        "sprites/stationwagon.png", "sprites/towtruck.png", "sprites/corvette.png"
+    };
+    
+    for (int i = 0; i < 9; i++) {
+        g_spriteCache[i] = tigrLoadImage(sprite_files[i]);
     }
-    return carSprite;
+    
+    g_spriteCacheInit = true;
+}
+
+void freeSpriteCache() {
+    for (int i = 0; i < 9; i++) {
+        if (g_spriteCache[i]) {
+            tigrFree(g_spriteCache[i]);
+            g_spriteCache[i] = nullptr;
+        }
+    }
+    g_spriteCacheInit = false;
+}
+
+Tigr* get_sprite (Car &car) {
+    if (!g_spriteCacheInit)
+        initSpriteCache();
+    
+    int idx = (int)car.type;
+    if (idx >= 0 && idx < 9)
+        return g_spriteCache[idx];
+    
+    return g_spriteCache[CAR_TYPE_DEFAULT];
 }
 
 int drawCarSprite(Tigr* win, const Car& car) {
 
     Tigr* carSprite = get_sprite(const_cast<Car&>(car));
 
-    /* Sawyer double check this - johnny*/
     if (!carSprite) {
         const char* sprite_names[] = {
             "convertable.png", "corvette.png", "garbagetruck.png", "jeep.png",
@@ -273,7 +280,7 @@ void randomize_cars(std::vector<Car> &cars,
         c.x = rand() % (PLAYFIELD_W - c.w);
         c.y = rand() % (PLAYFIELD_H - c.h);
         c.angle = 0;
-        c.color = tigrRGB(rand()%255, rand()%255, rand()%255);
+        c.color = tigrRGB(30, 30, 30);
 
         std::string full = bin_files[i];
         size_t slash = full.find_last_of("/\\");
@@ -282,6 +289,16 @@ void randomize_cars(std::vector<Car> &cars,
         if (slash == std::string::npos) slash = 0; else slash++;
 
         c.name = full.substr(slash, dot - slash);
+        
+        const char* car_types[] = {"_convertable", "_corvette", "_garbagetruck", "_jeep",
+                                   "_motorcycle", "_mustang", "_stationwagon", "_towtruck"};
+        for (const char* suffix : car_types) {
+            size_t pos = c.name.find(suffix);
+            if (pos != std::string::npos) {
+                c.name = c.name.substr(0, pos);
+                break;
+            }
+        }
 
         cars.push_back(c);
     }
@@ -704,8 +721,6 @@ void applyMovementOrClamp(Car& car, DerbyState* state, bool blocked, int nx, int
 }
 
 void drawScoreboard(Tigr* win) {
-    Tigr* carSprite = tigrLoadImage("car_icon.png");
-
     if (!g_cars || !g_derby_state || g_cars->empty())
         return;
 
@@ -786,6 +801,7 @@ void drawScoreboard(Tigr* win) {
         const int iconX = sbX + 8;
         const int iconY = boxY + (rowH - iconSize) / 2;
 
+        Tigr* carSprite = get_sprite(const_cast<Car&>(car));
         if (carSprite) {
             int srcW = std::min(iconSize, carSprite->w);
             int srcH = std::min(iconSize, carSprite->h);

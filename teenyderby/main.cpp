@@ -58,9 +58,7 @@ int main() {
             running = false;
     }
 
-    /* Sawyer reimplement this in utils.cpp*/
-    // if (g_carSprite)
-    //     tigrFree(g_carSprite);
+    freeSpriteCache();
     tigrFree(win);
     return 0;
 }
