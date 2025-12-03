@@ -16,12 +16,24 @@
 
 #define CAR_VERTICAL_MOVE_RATE   4
 
+enum car_type {
+    CAR_TYPE_CONVERTABLE,
+    CAR_TYPE_CORVETTE,
+    CAR_TYPE_GARBAGETRUCK,
+    CAR_TYPE_JEEP,
+    CAR_TYPE_MOTORCYCLE,
+    CAR_TYPE_MUSTANG,
+    CAR_TYPE_STATIONWAGON,
+    CAR_TYPE_TOWTRUCK,
+    CAR_TYPE_DEFAULT
+};
 struct Car {
     int x, y;
     int w, h;
     float angle;
     TPixel color;
     std::string name;
+    car_type type;
 };
 
 struct DerbyState {
@@ -60,13 +72,16 @@ void tigrBlitCenteredRotate(Tigr *dst, Tigr *src,
                             float angle);
 
 // Draw car image to the car                            
-void drawCarSprite(Tigr* win, const Car& car);        
+int drawCarSprite(Tigr* win, const Car& car);        
 
 // Draw namne tag above car
 void drawNameTag(Tigr* win, const Car& car);
 
 // Collects all .tny binary filenames into bin_files.
 void get_binaries(std::vector<std::string> &bin_files);
+
+// Parses car type from agent binary filename (e.g., "agent_corvette.bin" -> CAR_TYPE_CORVETTE).
+car_type parse_car_type_from_filename(const std::string& filename);
 
 // Loads agent binaries and initializes DerbyState array.
 void load_agents(const std::vector<std::string>& bin_files,

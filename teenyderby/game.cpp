@@ -1,3 +1,4 @@
+#include <iostream>
 #include "game.h"
 
 void gameInit(GameState& game, const std::vector<std::string>& bins) {
@@ -58,7 +59,10 @@ bool gameFrame(Tigr* win, GameState& game) {
         }
 
         drawRotatedCar(win, game.cars[i]);
-        drawCarSprite(win, game.cars[i]);
+        if(drawCarSprite(win, game.cars[i])  < 0) {
+            game.active = false;
+            std::cout << "Error drawing car sprite." << std::endl;
+        }
         drawNameTag(win, game.cars[i]);
         drawHealthBar(win, game.cars[i]);
     }
