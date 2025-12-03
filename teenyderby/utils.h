@@ -139,10 +139,4 @@ void drawScoreboard(Tigr* win);
 // Draws the bottom title/footer bar.
 void drawTitleBar(Tigr* win);
 
-// Initialize sprite cache (call once at startup).
-void initSpriteCache();
-
-// Free all cached sprites (call at shutdown).
-void freeSpriteCache();
-
 #endif

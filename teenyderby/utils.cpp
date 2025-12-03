@@ -9,10 +9,6 @@
 
 #define TIGR_BLEND_ALPHA(C, A, B) (unsigned char)(((C) * (A) + (B) * (255 - (A))) / 255)
 
-// Sprite cache to prevent memory leaks
-static Tigr* g_spriteCache[9] = {nullptr};
-static bool g_spriteCacheInit = false;
-
 DerbyState*       g_derby_state       = nullptr;
 size_t            g_derby_state_count = 0;
 std::vector<Car>* g_cars              = nullptr;
@@ -123,42 +119,38 @@ void drawNameTag(Tigr* win, const Car& car) {
     tigrPrint(win, tfont, tx, ty, tigrRGB(255,255,255), "%s", car.name.c_str());
 }
 
-void initSpriteCache() {
-    if (g_spriteCacheInit)
-        return;
-    
-    const char* sprite_files[] = {
-        "sprites/convertable.png", "sprites/corvette.png", "sprites/garbagetruck.png",
-        "sprites/jeep.png", "sprites/motorcycle.png", "sprites/mustang.png",
-        "sprites/stationwagon.png", "sprites/towtruck.png", "sprites/corvette.png"
-    };
-    
-    for (int i = 0; i < 9; i++) {
-        g_spriteCache[i] = tigrLoadImage(sprite_files[i]);
-    }
-    
-    g_spriteCacheInit = true;
-}
-
-void freeSpriteCache() {
-    for (int i = 0; i < 9; i++) {
-        if (g_spriteCache[i]) {
-            tigrFree(g_spriteCache[i]);
-            g_spriteCache[i] = nullptr;
-        }
-    }
-    g_spriteCacheInit = false;
-}
-
 Tigr* get_sprite (Car &car) {
-    if (!g_spriteCacheInit)
-        initSpriteCache();
-    
-    int idx = (int)car.type;
-    if (idx >= 0 && idx < 9)
-        return g_spriteCache[idx];
-    
-    return g_spriteCache[CAR_TYPE_DEFAULT];
+    Tigr* carSprite = nullptr;
+    switch(car.type) {
+        case CAR_TYPE_CONVERTABLE:
+            carSprite = tigrLoadImage("sprites/convertable.png");
+            break;
+        case CAR_TYPE_CORVETTE:
+            carSprite = tigrLoadImage("sprites/corvette.png");
+            break;
+        case CAR_TYPE_GARBAGETRUCK:
+            carSprite = tigrLoadImage("sprites/garbagetruck.png");
+            break;
+        case CAR_TYPE_JEEP:
+            carSprite = tigrLoadImage("sprites/jeep.png");
+            break;
+        case CAR_TYPE_MOTORCYCLE:
+            carSprite = tigrLoadImage("sprites/motorcycle.png");
+            break;
+        case CAR_TYPE_MUSTANG:
+            carSprite = tigrLoadImage("sprites/mustang.png");
+            break;
+        case CAR_TYPE_STATIONWAGON:
+            carSprite = tigrLoadImage("sprites/stationwagon.png");
+            break;
+        case CAR_TYPE_TOWTRUCK:
+            carSprite = tigrLoadImage("sprites/towtruck.png");
+            break;
+        default:
+            carSprite = tigrLoadImage("sprites/corvette.png");
+            break;
+    }
+    return carSprite;
 }
 
 int drawCarSprite(Tigr* win, const Car& car) {
@@ -189,6 +181,8 @@ int drawCarSprite(Tigr* win, const Car& car) {
         sw, sh,      
         car.angle * 180.0f / 3.14159265f 
     );
+    // Free per-draw to avoid leaks (Option B)
+    tigrFree(carSprite);
     return 0;
 }
 
@@ -809,6 +803,8 @@ void drawScoreboard(Tigr* win) {
             int srcY = (carSprite->h - srcH) / 2;
 
             tigrBlit(win, carSprite, iconX, iconY, srcX, srcY, srcW, srcH);
+            // Free per-draw for scoreboard icon
+            tigrFree(carSprite);
         } else {
             tigrFillRect(win, iconX, iconY, iconSize, iconSize, car.color);
         }

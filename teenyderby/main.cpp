@@ -58,7 +58,6 @@ int main() {
             running = false;
     }
 
-    freeSpriteCache();
     tigrFree(win);
     return 0;
 }
