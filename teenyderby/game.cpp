@@ -59,7 +59,7 @@ bool gameFrame(Tigr* win, GameState& game) {
         }
 
         drawRotatedCar(win, game.cars[i]);
-        if(drawCarSprite(win, game.cars[i])  < 0) {
+        if(drawCarSprite(win, game.cars[i],i)  < 0) {
             game.active = false;
             std::cout << "Error drawing car sprite." << std::endl;
         }

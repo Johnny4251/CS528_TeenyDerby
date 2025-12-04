@@ -15,6 +15,7 @@ std::vector<Car>* g_cars              = nullptr;
 
 float g_speeds[AGENT_MAX_CNT] = {0.0f};
 int   g_hitCooldown[AGENT_MAX_CNT] = {0};
+float g_shakeTimer[AGENT_MAX_CNT] = {0.0f};
 float g_scoreRowY[AGENT_MAX_CNT] = {0.0f};
 bool  g_scoreRowInit = false;
 
@@ -153,7 +154,7 @@ Tigr* get_sprite (Car &car) {
     return carSprite;
 }
 
-int drawCarSprite(Tigr* win, const Car& car) {
+int drawCarSprite(Tigr* win, const Car& car, int idx) {
 
     Tigr* carSprite = get_sprite(const_cast<Car&>(car));
 
@@ -172,6 +173,14 @@ int drawCarSprite(Tigr* win, const Car& car) {
 
     int sw = carSprite->w;
     int sh = carSprite->h;
+
+    if (g_shakeTimer[idx] > 0.0f) {
+        float shake = g_shakeTimer[idx];
+        float mag = shake * 0.4f; 
+
+        dx += (rand() % 100 / 100.0f - 0.5f) * mag;
+        dy += (rand() % 100 / 100.0f - 0.5f) * mag;
+    }
 
     tigrBlitCenteredRotate(
         win,
@@ -567,6 +576,8 @@ bool checkCarCollision(const Car &a, const Car &b)
 void updateHitCooldown(int idx) {
     if (g_hitCooldown[idx] > 0)
         g_hitCooldown[idx]--;
+    if (g_shakeTimer[idx] > 0)
+        g_shakeTimer[idx] -= 0.5f;
 }
 
 void updateAgentState(teenyat& agent, DerbyState* state) {
@@ -670,6 +681,9 @@ void applyCollisionDamage(int i, int collidedWith) {
         int bigDamage   = std::max(1, (int)std::round(attackerSpeed * 2.0f));
         int smallDamage = std::max(1, (int)std::round(attackerSpeed * 0.6f));
 
+        g_shakeTimer[i] = 6;
+        g_shakeTimer[collidedWith] = 6;
+
         if (g_hitCooldown[victim] == 0) {
             g_derby_state[victim].health -= bigDamage;
             g_derby_state[victim].health = std::max<int>(0, g_derby_state[victim].health);
@@ -693,6 +707,7 @@ void applyCollisionDamage(int i, int collidedWith) {
         g_derby_state[i].health -= wallDamage;
         g_derby_state[i].health = std::max<int>(0, g_derby_state[i].health);
         g_hitCooldown[i] = 10;
+        g_shakeTimer[i] = 6;
     }
 }
 

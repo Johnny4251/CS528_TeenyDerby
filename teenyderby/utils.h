@@ -71,7 +71,7 @@ void tigrBlitCenteredRotate(Tigr *dst, Tigr *src,
                             float angle);
 
 // Draw car image to the car                            
-int drawCarSprite(Tigr* win, const Car& car);        
+int drawCarSprite(Tigr* win, const Car& car, int idx);        
 
 // Draw namne tag above car
 void drawNameTag(Tigr* win, const Car& car);
