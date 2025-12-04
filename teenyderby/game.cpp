@@ -63,9 +63,12 @@ bool gameFrame(Tigr* win, GameState& game) {
             game.active = false;
             std::cout << "Error drawing car sprite." << std::endl;
         }
+        g_derby_state[i].smokeLevel = getSmokeLevel(i);
+        emitSmoke(win, game.cars[i], g_derby_state[i].smokeLevel);
         drawNameTag(win, game.cars[i]);
         drawHealthBar(win, game.cars[i]);
     }
+    updateSmoke(win);
 
     drawScoreboard(win);
     drawTitleBar(win);

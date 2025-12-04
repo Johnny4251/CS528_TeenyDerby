@@ -45,9 +45,19 @@ struct DerbyState {
 
     int16_t speed;
     int8_t health;
+    int smokeLevel;
 
     bool isDead;
 };
+struct SmokeParticle {
+    float x, y;
+    float vx, vy;
+    float alpha;   // fade
+    float size;
+    int color;     // gray value 0–255
+};
+static const int SMOKE_MAX = 700;
+static SmokeParticle smokePool[SMOKE_MAX];
 
 extern DerbyState*       g_derby_state;
 extern size_t            g_derby_state_count;
@@ -97,6 +107,16 @@ void drawRotatedCar(Tigr* win, const Car& car);
 
 // Renders a health bar above the car.
 void drawHealthBar(Tigr* win, const Car& car);
+
+void spawnSmoke(float x, float y, int level);
+
+void updateSmoke(Tigr* win);
+
+// Retrieves smoke level based on health
+int getSmokeLevel(int health);
+
+void emitSmoke(Tigr* win, const Car& car, int level);
+
 
 // Tests if rotated bounding box of car is within window bounds.
 bool rotatedInBounds(const Car& car, float nx, float ny, float angle);

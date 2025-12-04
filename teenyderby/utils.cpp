@@ -524,6 +524,75 @@ void drawHealthBar(Tigr* win, const Car& car)
              border);
 }
 
+int getSmokeLevel(int i) {
+    if (g_derby_state[i].health <= 0) return 4;   // black, max smoke
+    if (g_derby_state[i].health <= 25) return 3;  // dark gray
+    if (g_derby_state[i].health <= 50) return 2;  // gray
+    if (g_derby_state[i].health <= 75) return 1;  // white
+    return 0;                    // no smoke
+}
+
+void spawnSmoke(float x, float y, int level) {
+    for (int i = 0; i < SMOKE_MAX; i++) {
+        if (smokePool[i].alpha <= 0.0f) {
+
+            smokePool[i].x = x + (rand() % 6 - 3);
+            smokePool[i].y = y + (rand() % 6 - 3);
+
+            smokePool[i].vy = -0.4f - (rand() % 20) * 0.01f; // rise speed
+            smokePool[i].alpha = 1.0f;
+            smokePool[i].size = 1.0f + level;
+
+            switch (level) {
+                case 1: smokePool[i].color = 230; break;
+                case 2: smokePool[i].color = 150; break;
+                case 3: smokePool[i].color = 90;  break;
+                case 4: smokePool[i].color = 0;   break;
+            }
+
+            return;
+        }
+    }
+}
+
+void updateSmoke(Tigr* win) {
+    for (int i = 0; i < SMOKE_MAX; i++) {
+        if (smokePool[i].alpha > 0.0f) {
+
+            smokePool[i].y += smokePool[i].vy;
+            smokePool[i].alpha -= 0.01f;
+
+            int a = (int)(smokePool[i].alpha * 255);
+            if (a < 0) a = 0;
+
+            TPixel c;
+            c.r = smokePool[i].color;
+            c.g = smokePool[i].color;
+            c.b = smokePool[i].color;
+            c.a = a;
+
+            int sz = (int)smokePool[i].size;
+            for (int dy = -sz; dy <= sz; dy++)
+                for (int dx = -sz; dx <= sz; dx++)
+                    tigrPlot(win, (int)smokePool[i].x + dx, (int)smokePool[i].y + dy, c);
+        }
+    }
+}
+
+void emitSmoke(Tigr* win, const Car& car, int level) {
+    if (level == 0) return;
+
+   
+    float backX = car.x + car.w / 2 - cosf(car.angle) * car.w / 2;
+    float backY = car.y + car.h / 2 - sinf(car.angle) * car.h / 2;
+
+    for (int i = 0; i < level; i++) {
+        if ((rand() % 100) < 20) {  
+            spawnSmoke(backX, backY, level);
+        }
+    }
+}
+
 // Projects set of points onto axis and return min/max
  void projectOntoAxis(const float px[4], const float py[4],
                             float ax, float ay,
