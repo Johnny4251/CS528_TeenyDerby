@@ -19,12 +19,6 @@ int main() {
     srand(time(NULL));
 
     Tigr* win = tigrWindow(WIN_W, WIN_H, "Teeny Derby", TIGR_FIXED);
-    g_carSprite = tigrLoadImage("car.png");
-    if (!g_carSprite) {
-        printf("could not find car.png\n");
-        printf("exiting...\n");
-        return 1;
-    }
 
     std::vector<std::string> all_bin_files;
     get_binaries(all_bin_files);
@@ -64,8 +58,6 @@ int main() {
             running = false;
     }
 
-    if (g_carSprite)
-        tigrFree(g_carSprite);
     tigrFree(win);
     return 0;
 }
