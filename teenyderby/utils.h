@@ -14,7 +14,7 @@
 #define PLAYFIELD_W 700
 #define PLAYFIELD_H 600
 
-#define CAR_VERTICAL_MOVE_RATE   4
+#define CAR_VERTICAL_MOVE_RATE   6
 
 enum car_type {
     CAR_TYPE_CONVERTABLE,
@@ -30,6 +30,7 @@ enum car_type {
 struct Car {
     int x, y;
     int w, h;
+    float mass;
     float angle;
     TPixel color;
     std::string name;
@@ -158,5 +159,11 @@ void drawScoreboard(Tigr* win);
 
 // Draws the bottom title/footer bar.
 void drawTitleBar(Tigr* win);
+
+float computeSmoothedAngle(int /*idx*/, const DerbyState* state, float currentAngle);
+
+bool computeOBBPenetration(const Car& A, const Car& B,
+                           float& outNx, float& outNy,
+                           float& outDepth);
 
 #endif
