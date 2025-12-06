@@ -39,7 +39,7 @@ bool gameFrame(Tigr* win, GameState& game) {
             updateHitCooldown((int)i);
             updateAgentState(game.agents[i], state);
 
-            float targetAngle = computeDirectionAngle(state);
+            computeDirectionAngle(state);
             game.cars[i].angle = computeSmoothedAngle((int)i, state, game.cars[i].angle);
 
             float newSpeed = computeSmoothedSpeed((int)i, state);

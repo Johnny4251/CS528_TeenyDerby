@@ -19,6 +19,9 @@ float g_shakeTimer[AGENT_MAX_CNT] = {0.0f};
 float g_scoreRowY[AGENT_MAX_CNT] = {0.0f};
 bool  g_scoreRowInit = false;
 
+static SmokeParticle smokePool[SMOKE_MAX];
+
+
 float g_spinOffset[AGENT_MAX_CNT]  = {0.0f};  
 float g_spinVel[AGENT_MAX_CNT]     = {0.0f};  
 

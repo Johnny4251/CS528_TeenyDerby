@@ -58,7 +58,6 @@ struct SmokeParticle {
     int color;     // gray value 0–255
 };
 static const int SMOKE_MAX = 700;
-static SmokeParticle smokePool[SMOKE_MAX];
 
 extern DerbyState*       g_derby_state;
 extern size_t            g_derby_state_count;
