@@ -762,7 +762,7 @@ void drawScoreboard(Tigr* win) {
         g_scoreRowInit = true;
     }
 
-    const float SMOOTH = .95f; 
+    const float SMOOTH = .025f;
 
     for (size_t rank = 0; rank < cnt; ++rank)
     {
