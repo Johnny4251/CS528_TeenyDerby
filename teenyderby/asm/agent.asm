@@ -40,6 +40,7 @@
 .const SENSOR_SPEED    0x9025
 .const SENSOR_DIR      0x9026
 .const SENSOR_HEALTH   0x9027
+.cont  SENSOR_IS_DEAD  0x9028
 
 ; ---------------------------
 ; SELF-STATE REGISTERS
@@ -50,6 +51,7 @@
 .const SELF_HEALTH     0x9033
 .const SELF_X          0x9034
 .const SELF_Y          0x9035
+.const SELF_IS_DEAD    0x9036
 
 .const DLY_AMT   5
 .const FULL_THROTTLE 100
