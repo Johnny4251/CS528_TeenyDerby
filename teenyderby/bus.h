@@ -19,12 +19,14 @@
 #define DERBY_SENSOR_SPEED_ADDR   0x9025
 #define DERBY_SENSOR_DIR_ADDR     0x9026
 #define DERBY_SENSOR_HEALTH_ADDR  0x9027
+#define DERBY_SENSOR_IS_DEAD      0x9028
 #define DERBY_SELF_ID_ADDR        0x9030
 #define DERBY_SELF_SPEED_ADDR     0x9031
 #define DERBY_SELF_DIR_ADDR       0x9032
 #define DERBY_SELF_HEALTH_ADDR    0x9033
 #define DERBY_SELF_X_ADDR         0x9034
 #define DERBY_SELF_Y_ADDR         0x9035
+#define DERBY_SELF_IS_DEAD        0x9036
 
 void derby_bus_read(teenyat *t, tny_uword addr, tny_word *data, uint16_t *delay);
 void derby_bus_write(teenyat *t, tny_uword addr, tny_word data, uint16_t *delay);
