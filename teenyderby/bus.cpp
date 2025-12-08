@@ -18,87 +18,95 @@ void derby_bus_read(teenyat *t, tny_uword addr, tny_word *data, uint16_t *delay)
 
     auto get_target_index = [&]() -> int {
         uint8_t id = self->sensor_target;
-        if (id >= g_derby_state_count) return -1;
         return id;
     };
 
     switch (addr) {
+        case DERBY_SENSOR_TARGET_ADDR:
+            data->s = self->sensor_target;
+            break;
 
-    case DERBY_SENSOR_TARGET_ADDR:
-        data->s = self->sensor_target;
-        break;
+        case DERBY_SENSOR_REL_X_ADDR: {
+            int ti = get_target_index();
+            if (ti >= 0)
+                data->s = (*g_cars)[ti].x - (*g_cars)[self_index].x;
+            break;
+        }
 
-    case DERBY_SENSOR_REL_X_ADDR: {
-        int ti = get_target_index();
-        if (ti >= 0)
-            data->s = (*g_cars)[ti].x - (*g_cars)[self_index].x;
-        break;
-    }
+        case DERBY_SENSOR_REL_Y_ADDR: {
+            int ti = get_target_index();
+            if (ti >= 0)
+                data->s = (*g_cars)[ti].y - (*g_cars)[self_index].y;
+            break;
+        }
 
-    case DERBY_SENSOR_REL_Y_ADDR: {
-        int ti = get_target_index();
-        if (ti >= 0)
-            data->s = (*g_cars)[ti].y - (*g_cars)[self_index].y;
-        break;
-    }
+        case DERBY_SENSOR_X_ADDR: {
+            int ti = get_target_index();
+            if (ti >= 0) data->s = (*g_cars)[ti].x;
+            break;
+        }
 
-    case DERBY_SENSOR_X_ADDR: {
-        int ti = get_target_index();
-        if (ti >= 0) data->s = (*g_cars)[ti].x;
-        break;
-    }
+        case DERBY_SENSOR_Y_ADDR: {
+            int ti = get_target_index();
+            if (ti >= 0) data->s = (*g_cars)[ti].y;
+            break;
+        }
 
-    case DERBY_SENSOR_Y_ADDR: {
-        int ti = get_target_index();
-        if (ti >= 0) data->s = (*g_cars)[ti].y;
-        break;
-    }
+        case DERBY_SENSOR_SPEED_ADDR: {
+            int ti = get_target_index();
+            if (ti >= 0) data->s = g_derby_state[ti].speed;
+            break;
+        }
 
-    case DERBY_SENSOR_SPEED_ADDR: {
-        int ti = get_target_index();
-        if (ti >= 0) data->s = g_derby_state[ti].speed;
-        break;
-    }
+        case DERBY_SENSOR_DIR_ADDR: {
+            int ti = get_target_index();
+            if (ti >= 0) data->s = g_derby_state[ti].direction & 7;
+            break;
+        }
 
-    case DERBY_SENSOR_DIR_ADDR: {
-        int ti = get_target_index();
-        if (ti >= 0) data->s = g_derby_state[ti].direction & 7;
-        break;
-    }
+        case DERBY_SENSOR_HEALTH_ADDR: {
+            int ti = get_target_index();
+            if (ti >= 0) data->s = g_derby_state[ti].health;
+            break;
+        }
 
-    case DERBY_SENSOR_HEALTH_ADDR: {
-        int ti = get_target_index();
-        if (ti >= 0) data->s = g_derby_state[ti].health;
-        break;
-    }
+        case DERBY_SENSOR_IS_DEAD: {
+            int ti = get_target_index();
+            if (ti >= 0) data->u = g_derby_state[ti].isDead ? 1 : 0;
+            break;
+        }
 
-    case DERBY_SELF_ID_ADDR:
-        data->s = self->id;
-        break;
+        case DERBY_SELF_ID_ADDR:
+            data->s = self->id;
+            break;
 
-    case DERBY_SELF_SPEED_ADDR:
-        data->s = self->speed;
-        break;
+        case DERBY_SELF_SPEED_ADDR:
+            data->s = self->speed;
+            break;
 
-    case DERBY_SELF_DIR_ADDR:
-        data->s = self->direction;
-        break;
+        case DERBY_SELF_DIR_ADDR:
+            data->s = self->direction;
+            break;
 
-    case DERBY_SELF_HEALTH_ADDR:
-        data->s = self->health;
-        break;
+        case DERBY_SELF_HEALTH_ADDR:
+            data->s = self->health;
+            break;
 
-    case DERBY_SELF_X_ADDR:
-        data->s = (*g_cars)[self_index].x;
-        break;
+        case DERBY_SELF_X_ADDR:
+            data->s = (*g_cars)[self_index].x;
+            break;
 
-    case DERBY_SELF_Y_ADDR:
-        data->s = (*g_cars)[self_index].y;
-        break;
+        case DERBY_SELF_Y_ADDR:
+            data->s = (*g_cars)[self_index].y;
+            break;
 
-    default:
-        break;
-    }
+        case DERBY_SELF_IS_DEAD:
+            data->u = self->isDead ? 1 : 0;
+            break;
+
+        default:
+            break;
+        }
 }
 
 void derby_bus_write(teenyat *t, tny_uword addr, tny_word data, uint16_t *delay) {
@@ -107,23 +115,28 @@ void derby_bus_write(teenyat *t, tny_uword addr, tny_word data, uint16_t *delay)
     if (!state) return;
 
     switch (addr) {
+        case DERBY_THROTTLE_ADDR:
+            if (data.s < -100) data.s = -100;
+            if (data.s >  100) data.s = 100;
+            state->throttle = data.s;
+            break;
+        case DERBY_SENSOR_TARGET_ADDR: {
+            if (g_derby_state_count == 0) {
+                state->sensor_target = 0;
+                break;
+            }
 
-    case DERBY_THROTTLE_ADDR:
-        if (data.s < -100) data.s = -100;
-        if (data.s >  100) data.s = 100;
-        state->throttle = data.s;
-        break;
+            int raw = data.u;                       
+            uint8_t wrapped = raw % g_derby_state_count;
 
-    case DERBY_SENSOR_TARGET_ADDR:
-        if (data.s < 0) data.s = 0;
-        if (data.s > 7) data.s = 7;
-        state->sensor_target = data.s;
-        break;
-
-    default:
-        if (addr >= DERBY_DIR_BASE_ADDR && addr <= DERBY_DIR_MAX_ADDR) {
-            state->direction = addr - DERBY_DIR_BASE_ADDR;
+            state->sensor_target = wrapped;
+            break;
         }
-        break;
+        default:
+            if (addr >= DERBY_DIR_BASE_ADDR && addr <= DERBY_DIR_MAX_ADDR) {
+                state->direction = addr - DERBY_DIR_BASE_ADDR;
+            }
+            break;
+
     }
 }

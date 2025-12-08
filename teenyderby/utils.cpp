@@ -1,17 +1,171 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <string>
-
+#include <cstdlib>
+#include <algorithm>
 #include "utils.h"
 #include "bus.h"
 #include "teenyat.h"
-#include <cstdlib>
 
+#define TIGR_BLEND_ALPHA(C, A, B) (unsigned char)(((C) * (A) + (B) * (255 - (A))) / 255)
 
 DerbyState*       g_derby_state       = nullptr;
 size_t            g_derby_state_count = 0;
 std::vector<Car>* g_cars              = nullptr;
 
+float g_speeds[AGENT_MAX_CNT] = {0.0f};
+int   g_hitCooldown[AGENT_MAX_CNT] = {0};
+float g_shakeTimer[AGENT_MAX_CNT] = {0.0f};
+float g_scoreRowY[AGENT_MAX_CNT] = {0.0f};
+bool  g_scoreRowInit = false;
+
+static SmokeParticle smokePool[SMOKE_MAX];
+
+
+float g_spinOffset[AGENT_MAX_CNT]  = {0.0f};  
+float g_spinVel[AGENT_MAX_CNT]     = {0.0f};  
+
+const float MAX_SPEED        = CAR_VERTICAL_MOVE_RATE;
+const float SPEED_SMOOTHING  = 0.08f;
+const float IDLE_FRICTION    = 0.03f;
+
+void getRotatedCorners(int x, int y, int w, int h,
+                       float angle, float px[4], float py[4]);
+
+void projectOntoAxis(const float px[4], const float py[4],
+                     float ax, float ay,
+                     float &minProj, float &maxProj);
+
+/* Author: William Confer */
+void tigrBlitCenteredRotate(Tigr *dst, Tigr *src,
+                            int dx, int dy,
+                            int sx, int sy,
+                            int sw, int sh,
+                            float angle)
+{
+    // --- Angle Normalization (Toroidal) ---
+    angle = fmodf(angle, 360.0f);
+    if (angle < 0) angle += 360.0f;
+    float rad = angle * (float)M_PI / 180.0f;
+
+    // --- Inverse Rotation Matrix Components ---
+    float c = cosf(rad); // cos(-rad) = cos(rad)
+    float s = sinf(rad); // sin(-rad) = -sin(rad)
+
+    // --- Source Center ---
+    float src_cx = sw / 2.0f;
+    float src_cy = sh / 2.0f;
+
+    // --- Destination Bounding Box ---
+    float hsw = sw / 2.0f;
+    float hsh = sh / 2.0f;
+    float max_dist = sqrtf(hsw * hsw + hsh * hsh);
+
+    int dst_x_min = (int)floorf(dx - max_dist);
+    int dst_y_min = (int)floorf(dy - max_dist);
+    int dst_x_max = (int)ceilf(dx + max_dist);
+    int dst_y_max = (int)ceilf(dy + max_dist);
+
+    // Clamp to bitmap bounds
+    if (dst_x_min < 0) dst_x_min = 0;
+    if (dst_y_min < 0) dst_y_min = 0;
+    if (dst_x_max > dst->w) dst_x_max = dst->w;
+    if (dst_y_max > dst->h) dst_y_max = dst->h;
+
+    // --- Iterate Pixels ---
+    for (int y = dst_y_min; y < dst_y_max; y++)
+    {
+        for (int x = dst_x_min; x < dst_x_max; x++)
+        {
+            // Pixel relative to center
+            float p_x = x - dx;
+            float p_y = y - dy;
+
+            // Inverse rotation → source space
+            float s_x = p_x * c + p_y * s;
+            float s_y = p_x * -s + p_y * c;
+
+            // Convert to source bitmap coords
+            int src_map_x = sx + (int)floorf(s_x + src_cx);
+            int src_map_y = sy + (int)floorf(s_y + src_cy);
+
+            // Bounds check
+            if (src_map_x >= sx && src_map_x < sx + sw &&
+                src_map_y >= sy && src_map_y < sy + sh)
+            {
+                TPixel src_pix = src->pix[src_map_x + src_map_y * src->w];
+                TPixel *dst_pix = &dst->pix[x + y * dst->w];
+
+                // Transparency cases
+                if (src_pix.a == 0)
+                    continue;
+
+                if (src_pix.a == 255)
+                {
+                    *dst_pix = src_pix;
+                }
+                else
+                {
+                    int A = src_pix.a;
+                    dst_pix->r = TIGR_BLEND_ALPHA(src_pix.r, A, dst_pix->r);
+                    dst_pix->g = TIGR_BLEND_ALPHA(src_pix.g, A, dst_pix->g);
+                    dst_pix->b = TIGR_BLEND_ALPHA(src_pix.b, A, dst_pix->b);
+                    dst_pix->a = 255;
+                }
+            }
+        }
+    }
+}
+
+void drawNameTag(Tigr* win, const Car& car) {
+    if (car.name.empty()) return;
+
+    float cx = car.x + car.w / 2.0f;
+    float cy = car.y - 12; 
+
+    int textW = tigrTextWidth(tfont, car.name.c_str());
+    int textH = tigrTextHeight(tfont, car.name.c_str());
+
+    int tx = (int)(cx - textW / 2);
+    int ty = (int)(cy - textH);
+
+    tigrFillRect(win, tx - 2, ty - 1, textW + 4, textH + 2, tigrRGB(0,0,0));
+    tigrPrint(win, tfont, tx, ty, tigrRGB(255,255,255), "%s", car.name.c_str());
+}
+
+Tigr* get_sprite (Car &car) {
+    Tigr* carSprite = nullptr;
+    switch(car.type) {
+        case CAR_TYPE_CONVERTABLE:
+            carSprite = tigrLoadImage("sprites/convertable.png");
+            break;
+        case CAR_TYPE_CORVETTE:
+            carSprite = tigrLoadImage("sprites/corvette.png");
+            break;
+        case CAR_TYPE_GARBAGETRUCK:
+            carSprite = tigrLoadImage("sprites/garbagetruck.png");
+            break;
+        case CAR_TYPE_JEEP:
+            carSprite = tigrLoadImage("sprites/jeep.png");
+            break;
+        case CAR_TYPE_MOTORCYCLE:
+            carSprite = tigrLoadImage("sprites/motorcycle.png");
+            break;
+        case CAR_TYPE_MUSTANG:
+            carSprite = tigrLoadImage("sprites/mustang.png");
+            break;
+        case CAR_TYPE_STATIONWAGON:
+            carSprite = tigrLoadImage("sprites/stationwagon.png");
+            break;
+        case CAR_TYPE_TOWTRUCK:
+            carSprite = tigrLoadImage("sprites/towtruck.png");
+            break;
+        default:
+            carSprite = tigrLoadImage("sprites/corvette.png");
+            break;
+    }
+    return carSprite;
+}
 
 void get_binaries(std::vector<std::string> &bin_files) {
     DIR* dir = opendir("agents");
@@ -29,7 +183,6 @@ void get_binaries(std::vector<std::string> &bin_files) {
     }
     closedir(dir);
 }
-
 
 void load_agents(const std::vector<std::string>& bin_files,
                  std::vector<teenyat>& agents,
@@ -59,7 +212,6 @@ void load_agents(const std::vector<std::string>& bin_files,
         fclose(f);
     }
 }
-
 // Computes the 4 world-space corners of a rotated rectangle (OBB).
 // px[4], py[4] will contain the corners in order.
 void getRotatedCorners(int x, int y, int w, int h,
@@ -292,55 +444,6 @@ car_type parse_car_type_from_filename(const std::string& filename) {
     return CAR_TYPE_DEFAULT;
 }
 
-
-struct CarStats {
-    int   maxHealth;
-    float speedScale;
-    float turnRate;
-    float mass;
-};
-
-static CarStats getCarStatsForType(car_type type) {
-    switch (type) {
-
-        case CAR_TYPE_MOTORCYCLE:
-            // Fragile, super fast, super nimble
-            return { 44, 1.5f, 0.30f, 0.6f };
-
-        case CAR_TYPE_CORVETTE:
-            // Sporty, light
-            return { 56, 1.20f, 0.26f, 1.0f };
-
-        case CAR_TYPE_CONVERTABLE:
-            // Baseline car
-            return { 63, 1.00f, 0.24f, 1.0f };
-
-        case CAR_TYPE_JEEP:
-            // Tough-ish offroader
-            return { 69, 0.90f, 0.20f, 1.3f };
-
-        case CAR_TYPE_MUSTANG:
-            // Slightly tougher than Corvette 
-            return { 59, 1.05f, 0.24f, 1.1f };
-
-        case CAR_TYPE_STATIONWAGON:
-            // Tanky family hauler
-            return { 75, 0.85f, 0.18f, 1.6f };
-
-        case CAR_TYPE_GARBAGETRUCK:
-            // Heavy bruiser
-            return { 88, 0.75f, 0.16f, 2.2f };
-
-        case CAR_TYPE_TOWTRUCK:
-            // Absolute tank — new max baseline
-            return { 100, 0.50f, 0.15f, 3.5f };
-        default:
-            // Default baseline
-            return { 63, 1.00f, 0.22f, 1.0f };
-    }
-}
-
-
 void randomize_cars(std::vector<Car> &cars,
                     const std::vector<teenyat> &agents,
                     const std::vector<std::string> &bin_files)
@@ -348,9 +451,7 @@ void randomize_cars(std::vector<Car> &cars,
     g_cars = &cars;
     cars.clear();
 
-    size_t count = std::min(agents.size(), bin_files.size());
-
-    for (size_t i = 0; i < count; ++i) {
+    for (size_t i = 0; i < agents.size(); ++i) {
         Car c;
 
         // Parse car type from binary filename
@@ -404,32 +505,137 @@ void randomize_cars(std::vector<Car> &cars,
             }
         }
 
-        // -------- Stats by type (health, speed, turn, mass) --------
-        CarStats stats = getCarStatsForType(c.type);
-
-        c.mass       = stats.mass;
-        c.speedScale = stats.speedScale;
-        c.turnRate   = stats.turnRate;
-        c.maxHealth  = stats.maxHealth;
-
-        // Initialize DerbyState if available
-        if (g_derby_state && i < g_derby_state_count) {
-            g_derby_state[i].health  = stats.maxHealth;
-            g_derby_state[i].isDead  = false;
-            g_derby_state[i].speed   = 0;
-            g_derby_state[i].id      = (int)i;
+        // -------- Mass by type --------
+        switch (c.type) {
+            case CAR_TYPE_MOTORCYCLE:   c.mass = 0.5f; break;
+            case CAR_TYPE_CORVETTE:     c.mass = 1.0f; break;
+            case CAR_TYPE_CONVERTABLE:  c.mass = 1.0f; break;
+            case CAR_TYPE_JEEP:         c.mass = 1.3f; break;
+            case CAR_TYPE_MUSTANG:      c.mass = 1.1f; break;
+            case CAR_TYPE_STATIONWAGON: c.mass = 1.6f; break;
+            case CAR_TYPE_GARBAGETRUCK: c.mass = 2.2f; break;
+            case CAR_TYPE_TOWTRUCK:     c.mass = 3.5f; break;
+            default:                    c.mass = 1.0f; break;
         }
 
         if (i < AGENT_MAX_CNT) {
             g_spinOffset[i] = 0.0f;
             g_spinVel[i]    = 0.0f;
-            g_speeds[i]     = 0.0f;
-            g_hitCooldown[i] = 0;
-            g_shakeTimer[i]  = 0.0f;
         }
 
         cars.push_back(c);
     }
+}
+
+void applyMassDamageAndElasticity(Car& A, Car& B,
+                                  int idxA, int idxB)
+{
+    float mA = A.mass;
+    float mB = B.mass;
+
+    float vA = g_speeds[idxA];
+    float vB = g_speeds[idxB];
+
+    // Convert scalar speed into real 2D velocity
+    float vAx = cosf(A.angle) * vA;
+    float vAy = sinf(A.angle) * vA;
+    float vBx = cosf(B.angle) * vB;
+    float vBy = sinf(B.angle) * vB;
+
+    // Compute collision normal (pointing from B → A)
+    float nx = A.x - B.x;
+    float ny = A.y - B.y;
+    float dist = sqrtf(nx * nx + ny * ny);
+    if (dist < 1.0f) dist = 1.0f;
+    nx /= dist;
+    ny /= dist;
+
+    // Project velocities onto collision normal
+    float vA_norm = vAx * nx + vAy * ny;
+    float vB_norm = vBx * nx + vBy * ny;
+
+    float relSpeed = fabsf(vA_norm - vB_norm);
+
+    // -------------------------
+    // MASS-BASED DAMAGE MODEL
+    // -------------------------
+    float dmgA = relSpeed * (mB / mA) * 1.4f;
+    float dmgB = relSpeed * (mA / mB) * 1.4f;
+
+    if (g_hitCooldown[idxA] == 0) {
+        g_derby_state[idxA].health -= (int)roundf(dmgA);
+        if (g_derby_state[idxA].health < 0) g_derby_state[idxA].health = 0;
+        g_hitCooldown[idxA] = 10;
+    }
+
+    if (g_hitCooldown[idxB] == 0) {
+        g_derby_state[idxB].health -= (int)roundf(dmgB);
+        if (g_derby_state[idxB].health < 0) g_derby_state[idxB].health = 0;
+        g_hitCooldown[idxB] = 10;
+    }
+
+    // ------------------------------------
+    // 2D ELASTICITY (PHYSICS-CORRECT)
+    // ------------------------------------
+    const float e = 0.45f;
+
+    float newVA_norm =
+        (vA_norm * (mA - e * mB) + (1.0f + e) * mB * vB_norm) / (mA + mB);
+
+    float newVB_norm =
+        (vB_norm * (mB - e * mA) + (1.0f + e) * mA * vA_norm) / (mA + mB);
+
+    // Tangential components (unchanged)
+    float vA_tan_x = vAx - vA_norm * nx;
+    float vA_tan_y = vAy - vA_norm * ny;
+    float vB_tan_x = vBx - vB_norm * nx;
+    float vB_tan_y = vBy - vB_norm * ny;
+
+    // Reconstruct final 2D velocities
+    float newVax = vA_tan_x + newVA_norm * nx;
+    float newVay = vA_tan_y + newVA_norm * ny;
+
+    float newVbx = vB_tan_x + newVB_norm * nx;
+    float newVby = vB_tan_y + newVB_norm * ny;
+
+    // Convert 2D velocity back to forward scalar speed
+    g_speeds[idxA] = newVax * cosf(A.angle) + newVay * sinf(A.angle);
+    g_speeds[idxB] = newVbx * cosf(B.angle) + newVby * sinf(B.angle);
+
+    if (fabsf(g_speeds[idxA]) < 0.02f) g_speeds[idxA] = 0.0f;
+    if (fabsf(g_speeds[idxB]) < 0.02f) g_speeds[idxB] = 0.0f;
+
+    // ------------------------------------
+    // SMOOTH SPIN IMPULSE (NO SNAP)
+    // ------------------------------------
+    // Relative velocity (for spin direction)
+    float rvx = vAx - vBx;
+    float rvy = vAy - vBy;
+
+    // Cross product of normal and relative velocity gives spin sign
+    float cross = nx * rvy - ny * rvx;  // z-component
+    float sign  = (cross >= 0.0f) ? 1.0f : -1.0f;
+
+    float baseImpulse = relSpeed * 0.01f;  // softer spin response
+    if (baseImpulse > 0.10f) baseImpulse = 0.10f;  // smaller cap
+
+
+    float totalMass = mA + mB;
+    float impulseA = baseImpulse * (mB / totalMass);
+    float impulseB = baseImpulse * (mA / totalMass);
+
+    g_spinVel[idxA] += sign * impulseA;
+    g_spinVel[idxB] -= sign * impulseB;
+
+    // Clamp angular velocity to avoid crazy spinning
+    auto clamp = [](float v, float lo, float hi) {
+        if (v < lo) return lo;
+        if (v > hi) return hi;
+        return v;
+    };
+
+    g_spinVel[idxA] = clamp(g_spinVel[idxA], -0.5f, 0.5f);
+    g_spinVel[idxB] = clamp(g_spinVel[idxB], -0.5f, 0.5f);
 }
 
 
@@ -498,66 +704,91 @@ void tigrFillTriangle(Tigr* win,
     // Result is a filled triangle.
 }
 
-void drawRotatedCar(Tigr* win, const Car& car)
-{   
-    // (cx, cy) is the center of the rectangle
-    float cx = car.x + car.w / 2.0f;
-    float cy = car.y + car.h / 2.0f;
+int drawCarSprite(Tigr* win, const Car& car, int idx)
+{
+    Tigr* carSprite = get_sprite(const_cast<Car&>(car));
 
-    // hw/hh = half-width and half-height
-    // c/s = cosine/sine of rotation angle
-    float hw = car.w / 2.0f;
-    float hh = car.h / 2.0f;
-
-    float c = cosf(car.angle);
-    float s = sinf(car.angle);
-
-    // 4 rectangle corners relative to the center
-    float rx[4] = { -hw,  hw,  hw, -hw };
-    float ry[4] = { -hh, -hh,  hh,  hh };
-
-    float px[4], py[4];
-
-    // x′=xcosθ−ysinθ
-    // y′=xsinθ+ycosθ
-    for (int i = 0; i < 4; i++) {
-        float x = rx[i];
-        float y = ry[i];
-        // rotate
-        float xr = x * c - y * s;
-        float yr = x * s + y * c;
-        // translate back to screen center
-        px[i] = cx + xr;
-        py[i] = cy + yr;
+    if (!carSprite) {
+        const char* sprite_names[] = {
+            "convertable.png", "corvette.png", "garbagetruck.png", "jeep.png",
+            "motorcycle.png", "mustang.png", "stationwagon.png", "towtruck.png", "default.png"
+        };
+        printf("could not find sprites/%s\n", sprite_names[car.type]);
+        printf("exiting...\n");
+        return -1;
     }
 
-    // Draw two triangles that form the rectangle
-    tigrFillTriangle(win, px[0], py[0], px[1], py[1], px[2], py[2], car.color);
-    tigrFillTriangle(win, px[0], py[0], px[2], py[2], px[3], py[3], car.color);
+    float visualAngle = car.angle;
+
+    // Resolve index: prefer explicit idx, fall back to pointer math
+    int localIdx = idx;
+    if ((localIdx < 0 || localIdx >= AGENT_MAX_CNT) && g_cars && !g_cars->empty()) {
+        const Car* base = g_cars->data();
+        const Car* ptr  = &car;
+        int computedIdx = (int)(ptr - base);
+        if (computedIdx >= 0 && computedIdx < AGENT_MAX_CNT) {
+            localIdx = computedIdx;
+        }
+    }
+
+    // --- WOBBLE (spring-damped spin) ---
+    if (localIdx >= 0 && localIdx < AGENT_MAX_CNT) {
+        const float SPRING   = 0.05f;
+        const float DAMP     = 0.70f;
+        const float MAX_SLIP = 0.25f;
+
+        g_spinVel[localIdx]   += -SPRING * g_spinOffset[localIdx];
+        g_spinVel[localIdx]   *= DAMP;
+        g_spinOffset[localIdx] += g_spinVel[localIdx];
+
+        if (fabsf(g_spinOffset[localIdx]) < 0.003f &&
+            fabsf(g_spinVel[localIdx])    < 0.003f) {
+            g_spinOffset[localIdx] = 0.0f;
+            g_spinVel[localIdx]    = 0.0f;
+        }
+
+        if (g_spinOffset[localIdx] >  MAX_SLIP) g_spinOffset[localIdx] =  MAX_SLIP;
+        if (g_spinOffset[localIdx] < -MAX_SLIP) g_spinOffset[localIdx] = -MAX_SLIP;
+
+        visualAngle = car.angle + g_spinOffset[localIdx] * 0.85f;
+    }
+
+    // Center at car’s collision box center
+    int dx = (int)(car.x + car.w / 2.0f);
+    int dy = (int)(car.y + car.h / 2.0f);
+
+    // --- SCREEN SHAKE (on hit) ---
+    if (localIdx >= 0 && localIdx < AGENT_MAX_CNT && g_shakeTimer[localIdx] > 0.0f) {
+        float shake = g_shakeTimer[localIdx];
+        float mag   = shake * 0.4f;
+
+        float offX = ((rand() % 100) / 100.0f - 0.5f) * mag;
+        float offY = ((rand() % 100) / 100.0f - 0.5f) * mag;
+
+        dx += (int)offX;
+        dy += (int)offY;
+    }
+
+    int sw = carSprite->w;
+    int sh = carSprite->h;
+
+    tigrBlitCenteredRotate(
+        win,
+        carSprite,
+        dx, dy,
+        0, 0,
+        sw, sh,
+        visualAngle * 180.0f / 3.14159265f
+    );
+
+    tigrFree(carSprite);
+    return 0;
 }
 
-void getRotatedCorners(int x, int y, int w, int h, float angle, float px[4], float py[4]) {
-    float cx = x + w / 2.0f;
-    float cy = y + h / 2.0f;
-
-    float hw = w / 2.0f;
-    float hh = h / 2.0f;
-
-    float c = cosf(angle);
-    float s = sinf(angle);
-
-    float rx[4] = { -hw,  hw,  hw, -hw };
-    float ry[4] = { -hh, -hh,  hh,  hh };
-
-    // x′=xcosθ−ysinθ
-    // y′=xsinθ+ycosθ
-    for (int i = 0; i < 4; i++) {
-        float xr = rx[i] * c - ry[i] * s;
-        float yr = rx[i] * s + ry[i] * c;
-
-        px[i] = cx + xr;
-        py[i] = cy + yr;
-    }
+// Optional: keep a 2-arg version for any old calls
+int drawCarSprite(Tigr* win, const Car& car)
+{
+    return drawCarSprite(win, car, -1);
 }
 
 bool rotatedInBounds(const Car& car, float nx, float ny, float angle)
@@ -566,11 +797,163 @@ bool rotatedInBounds(const Car& car, float nx, float ny, float angle)
     getRotatedCorners(nx, ny, car.w, car.h, angle, px, py);
 
     for (int i = 0; i < 4; i++) {
-        if (px[i] < 0 || px[i] > WIN_W ||
-            py[i] < 0 || py[i] > WIN_H)
+        if (px[i] < 0 || px[i] > PLAYFIELD_W ||
+            py[i] < 0 || py[i] > PLAYFIELD_H)
             return false;
     }
     return true;
+}
+
+int drawCarSprite(Tigr* win, const Car& car, int idx)
+{
+    Tigr* carSprite = get_sprite(const_cast<Car&>(car));
+
+    if (!carSprite) {
+        const char* sprite_names[] = {
+            "convertable.png", "corvette.png", "garbagetruck.png", "jeep.png",
+            "motorcycle.png", "mustang.png", "stationwagon.png", "towtruck.png", "default.png"
+        };
+        printf("could not find sprites/%s\n", sprite_names[car.type]);
+        printf("exiting...\n");
+        return -1;
+    }
+
+    float visualAngle = car.angle;
+
+    // Resolve index: prefer explicit idx, fall back to pointer math
+    int localIdx = idx;
+    if ((localIdx < 0 || localIdx >= AGENT_MAX_CNT) && g_cars && !g_cars->empty()) {
+        const Car* base = g_cars->data();
+        const Car* ptr  = &car;
+        int computedIdx = (int)(ptr - base);
+        if (computedIdx >= 0 && computedIdx < AGENT_MAX_CNT) {
+            localIdx = computedIdx;
+        }
+    }
+
+    // --- WOBBLE (spring-damped spin) ---
+    if (localIdx >= 0 && localIdx < AGENT_MAX_CNT) {
+        const float SPRING   = 0.05f;
+        const float DAMP     = 0.70f;
+        const float MAX_SLIP = 0.25f;
+
+        g_spinVel[localIdx]   += -SPRING * g_spinOffset[localIdx];
+        g_spinVel[localIdx]   *= DAMP;
+        g_spinOffset[localIdx] += g_spinVel[localIdx];
+
+        if (fabsf(g_spinOffset[localIdx]) < 0.003f &&
+            fabsf(g_spinVel[localIdx])    < 0.003f) {
+            g_spinOffset[localIdx] = 0.0f;
+            g_spinVel[localIdx]    = 0.0f;
+        }
+
+        if (g_spinOffset[localIdx] >  MAX_SLIP) g_spinOffset[localIdx] =  MAX_SLIP;
+        if (g_spinOffset[localIdx] < -MAX_SLIP) g_spinOffset[localIdx] = -MAX_SLIP;
+
+        visualAngle = car.angle + g_spinOffset[localIdx] * 0.85f;
+    }
+
+    // Center at car’s collision box center
+    int dx = (int)(car.x + car.w / 2.0f);
+    int dy = (int)(car.y + car.h / 2.0f);
+
+    // --- SCREEN SHAKE (on hit) ---
+    if (localIdx >= 0 && localIdx < AGENT_MAX_CNT && g_shakeTimer[localIdx] > 0.0f) {
+        float shake = g_shakeTimer[localIdx];
+        float mag   = shake * 0.4f;
+
+        float offX = ((rand() % 100) / 100.0f - 0.5f) * mag;
+        float offY = ((rand() % 100) / 100.0f - 0.5f) * mag;
+
+        dx += (int)offX;
+        dy += (int)offY;
+    }
+
+    int sw = carSprite->w;
+    int sh = carSprite->h;
+
+    tigrBlitCenteredRotate(
+        win,
+        carSprite,
+        dx, dy,
+        0, 0,
+        sw, sh,
+        visualAngle * 180.0f / 3.14159265f
+    );
+
+    tigrFree(carSprite);
+    return 0;
+}
+
+// Optional: keep a 2-arg version for any old calls
+int drawCarSprite(Tigr* win, const Car& car)
+{
+    return drawCarSprite(win, car, -1);
+}
+
+bool rotatedInBounds(const Car& car, float nx, float ny, float angle)
+{
+    float px[4], py[4];
+    getRotatedCorners(nx, ny, car.w, car.h, angle, px, py);
+
+    for (int i = 0; i < 4; i++) {
+        if (px[i] < 0 || px[i] > PLAYFIELD_W ||
+            py[i] < 0 || py[i] > PLAYFIELD_H)
+            return false;
+    }
+    return true;
+}
+
+void drawRotatedCar(Tigr* win, const Car& car)
+{
+    float visualAngle = car.angle;
+
+    if (g_cars && !g_cars->empty()) {
+        const Car* base = g_cars->data();
+        const Car* ptr  = &car;
+        int idx = (int)(ptr - base);
+
+        if (idx >= 0 && idx < AGENT_MAX_CNT) {
+            // Just *use* the wobble state; do NOT update it here.
+            visualAngle = car.angle + g_spinOffset[idx] * 0.85f;
+        }
+    }
+
+    float cx = car.x + car.w / 2.0f;
+    float cy = car.y + car.h / 2.0f;
+
+    float hw = car.w / 2.0f;
+    float hh = car.h / 2.0f;
+
+    float c = cosf(visualAngle);
+    float s = sinf(visualAngle);
+
+    float rx[4] = { -hw,  hw,  hw, -hw };
+    float ry[4] = { -hh, -hh,  hh,  hh };
+
+    float px[4], py[4];
+
+    for (int i = 0; i < 4; i++) {
+        float x = rx[i];
+        float y = ry[i];
+        float xr = x * c - y * s;
+        float yr = x * s + y * c;
+        px[i] = cx + xr;
+        py[i] = cy + yr;
+    }
+
+    tigrFillTriangle(win, px[0], py[0], px[1], py[1], px[2], py[2], car.color);
+    tigrFillTriangle(win, px[0], py[0], px[2], py[2], px[3], py[3], car.color);
+
+    tigrLine(win,
+        (int)px[1], (int)py[1],
+        (int)px[2], (int)py[2],
+        tigrRGB(255, 0, 0));
+
+    tigrLine(win,
+        (int)px[0], (int)py[0],
+        (int)px[3], (int)py[3],
+        tigrRGB(0, 0, 255));
 }
 
 
@@ -638,32 +1021,11 @@ void drawHealthBar(Tigr* win, const Car& car)
 }
 
 int getSmokeLevel(int i) {
-    if (!g_cars || !g_derby_state || g_cars->empty())
-        return 0;
-
-    // Clamp index
-    if (i < 0 || (size_t)i >= g_derby_state_count)
-        return 0;
-
-    const Car& car = (*g_cars)[i];
-    const DerbyState& st = g_derby_state[i];
-
-    int maxHp = (car.maxHealth > 0) ? car.maxHealth : 100;
-    int hp    = st.health;
-
-    if (hp <= 0)
-        return 4;  // dead → black, max smoke
-
-    // Clamp to [0, maxHp]
-    if (hp > maxHp) hp = maxHp;
-
-    float ratio = (float)hp / (float)maxHp;  // 1.0 = full health
-
-    // Use percentage thresholds instead of absolute values
-    if (ratio <= 0.25f) return 3; // dark gray (very low)
-    if (ratio <= 0.50f) return 2; // gray
-    if (ratio <= 0.75f) return 1; // white (a bit hurt)
-    return 0;                     // no smoke when mostly healthy
+    if (g_derby_state[i].health <= 0) return 4;   // black, max smoke
+    if (g_derby_state[i].health <= 25) return 3;  // dark gray
+    if (g_derby_state[i].health <= 50) return 2;  // gray
+    if (g_derby_state[i].health <= 75) return 1;  // white
+    return 0;                    // no smoke
 }
 
 void spawnSmoke(float x, float y, int level) {
@@ -786,6 +1148,9 @@ void updateHitCooldown(int idx) {
 void updateAgentState(teenyat& agent, DerbyState* state) {
     if (!state) return;
 
+    if (state->health > 100)
+        state->health = 100;
+
     if (state->health <= 0) {
         state->health = 0;
         state->isDead = true;
@@ -847,7 +1212,8 @@ static float smoothAngleToTarget(float current, float target, float factor)
     return current + diff * factor;
 }
 
-float computeSmoothedAngle(int idx, const DerbyState* state, float currentAngle)
+// Smooths car.angle toward the 8-way direction in DerbyState.
+float computeSmoothedAngle(int /*idx*/, const DerbyState* state, float currentAngle)
 {
     if (!state)
         return currentAngle;
@@ -855,15 +1221,8 @@ float computeSmoothedAngle(int idx, const DerbyState* state, float currentAngle)
     uint8_t dir = state->direction & 7;
     float target = dir * (3.14159265f / 4.0f);   // same 8-way grid
 
-    // Base smoothing factor
-    float factor = 0.22f;
-
-    // Per-car turn rate if available
-    if (g_cars && idx >= 0 && idx < (int)g_cars->size()) {
-        factor = (*g_cars)[idx].turnRate;
-    }
-
-    return smoothAngleToTarget(currentAngle, target, factor);
+    const float TURN_SMOOTH = 0.22f;  // 0.1 → slow, 0.3 → snappier
+    return smoothAngleToTarget(currentAngle, target, TURN_SMOOTH);
 }
 
 
@@ -902,9 +1261,8 @@ float computeSmoothedSpeed(int idx, const DerbyState* state) {
 
     float& currentSpeed = g_speeds[idx];
 
-    // Dead cars coast to a stop
     if (state->isDead) {
-        currentSpeed *= 0.3f;
+        currentSpeed *= 0.3f;  
 
         if (std::fabs(currentSpeed) < 0.05f)
             currentSpeed = 0.0f;
@@ -914,38 +1272,25 @@ float computeSmoothedSpeed(int idx, const DerbyState* state) {
 
     float tval = std::clamp((float)state->throttle, -100.0f, 100.0f);
 
-    // Per-car max speed
-    float maxSpeed = MAX_SPEED;
-    if (g_cars && idx >= 0 && idx < (int)g_cars->size()) {
-        maxSpeed *= (*g_cars)[idx].speedScale;
-    }
+    float targetSpeed = (tval / 100.0f) * MAX_SPEED;
+    float accel = (targetSpeed - currentSpeed) * SPEED_SMOOTHING;
+    currentSpeed += accel;
 
-    float targetSpeed = (tval / 100.0f) * maxSpeed;
-    float accel       = (targetSpeed - currentSpeed) * SPEED_SMOOTHING;
-    currentSpeed     += accel;
-
-    // Global drag
     currentSpeed *= 0.995f;
 
-    // Extra idle friction when throttle is near zero
     if (std::fabs(tval) < 5.0f)
         currentSpeed *= (1.0f - IDLE_FRICTION);
 
-    // Snap small speeds to zero
     if (std::fabs(currentSpeed) < 0.02f)
         currentSpeed = 0.0f;
 
-    // Clamp to per-car max
-    currentSpeed = std::clamp(currentSpeed, -maxSpeed, maxSpeed);
+    currentSpeed = std::clamp(currentSpeed, -MAX_SPEED, MAX_SPEED);
 
-    // Reduce sideways slip a bit so they feel grippier
-    currentSpeed = applySlipReduction(
-        currentSpeed,
-        state->direction * (3.14159265f / 4.0f),
-        0.12f
-    );
+    // Apply slip reduction (0.05–0.20 recommended)
+    currentSpeed = applySlipReduction(currentSpeed, state->direction * (3.14159265f/4.0f), 0.12f);
 
     return currentSpeed;
+
 }
 
 
@@ -1075,14 +1420,13 @@ void drawScoreboard(Tigr* win) {
     const int sbW = WIN_W - PLAYFIELD_W;
     const int sbH = PLAYFIELD_H;
 
-    // Background + border
     tigrFillRect(win, sbX, sbY, sbW, sbH, tigrRGB(14, 14, 22));
     tigrRect(win, sbX, sbY, sbW, sbH, tigrRGB(60, 60, 80));
 
-    // Header
     const int headerH = 22;
     tigrFillRect(win, sbX, sbY, sbW, headerH, tigrRGB(26, 26, 40));
     tigrLine(win, sbX, sbY + headerH, sbX + sbW, sbY + headerH, tigrRGB(80, 80, 110));
+
     tigrPrint(win, tfont, sbX + 8, sbY + 6, tigrRGB(220, 220, 255), "DERBY AGENTS");
 
     const int rowH    = 34;
@@ -1090,7 +1434,6 @@ void drawScoreboard(Tigr* win) {
     const size_t cnt  = std::min(g_derby_state_count, g_cars->size());
     if (cnt == 0) return;
 
-    // Sorting order by health / alive
     std::vector<int> order(cnt);
     for (size_t i = 0; i < cnt; ++i)
         order[i] = (int)i;
@@ -1100,15 +1443,14 @@ void drawScoreboard(Tigr* win) {
         const DerbyState& sb = g_derby_state[b];
 
         if (sa.isDead != sb.isDead)
-            return !sa.isDead && sb.isDead;  // alive > dead
+            return !sa.isDead && sb.isDead;
 
         if (sa.health != sb.health)
-            return sa.health > sb.health;    // higher HP first
+            return sa.health > sb.health;
 
-        return sa.id < sb.id;                // tie-breaker
+        return sa.id < sb.id;
     });
 
-    // Smooth row positions
     if (!g_scoreRowInit) {
         for (size_t rank = 0; rank < cnt; ++rank) {
             int idx = order[rank];
@@ -1117,7 +1459,7 @@ void drawScoreboard(Tigr* win) {
         g_scoreRowInit = true;
     }
 
-    const float SMOOTH = 0.025f;
+    const float SMOOTH = .025f;
 
     for (size_t rank = 0; rank < cnt; ++rank)
     {
@@ -1125,14 +1467,14 @@ void drawScoreboard(Tigr* win) {
         const DerbyState& st = g_derby_state[idx];
         const Car&        car = (*g_cars)[idx];
 
-        float targetY  = (float)(startY + (int)rank * rowH);
+        float targetY = (float)(startY + (int)rank * rowH);
         float currentY = g_scoreRowY[idx];
-        currentY      += (targetY - currentY) * SMOOTH;
+        currentY += (targetY - currentY) * SMOOTH;
         g_scoreRowY[idx] = currentY;
 
         int boxY = (int)currentY;
         if (boxY + rowH > sbY + sbH - 4)
-            break;
+            break; 
 
         bool evenRow = (rank % 2 == 0);
         TPixel boxBg     = evenRow ? tigrRGB(30, 30, 42) : tigrRGB(24, 24, 36);
@@ -1146,7 +1488,6 @@ void drawScoreboard(Tigr* win) {
         tigrFillRect(win, sbX + 4, boxY, sbW - 8, rowH - 4, boxBg);
         tigrRect(win, sbX + 4, boxY, sbW - 8, rowH - 4, boxBorder);
 
-        // Icon
         const int iconSize = 20;
         const int iconX = sbX + 8;
         const int iconY = boxY + (rowH - iconSize) / 2;
@@ -1159,6 +1500,7 @@ void drawScoreboard(Tigr* win) {
             int srcY = (carSprite->h - srcH) / 2;
 
             tigrBlit(win, carSprite, iconX, iconY, srcX, srcY, srcW, srcH);
+            // Free per-draw for scoreboard icon
             tigrFree(carSprite);
         } else {
             tigrFillRect(win, iconX, iconY, iconSize, iconSize, car.color);
@@ -1173,12 +1515,8 @@ void drawScoreboard(Tigr* win) {
 
         tigrPrint(win, tfont, textX, textY, nameColor, "%s", name);
 
-        // Health bar in scoreboard row
         int hp = std::max(0, (int)st.health);
-        int maxHp = car.maxHealth > 0 ? car.maxHealth : 100;
-        float ratio = maxHp > 0
-                      ? std::clamp(hp / (float)maxHp, 0.0f, 1.0f)
-                      : 0.0f;
+        float ratio = std::clamp(hp / 100.0f, 0.0f, 1.0f);
 
         int barW = sbW - (textX - sbX) - 10;
         int barH = 5;

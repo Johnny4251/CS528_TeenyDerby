@@ -1,4 +1,3 @@
-
 ; ---------------------------
 ; TEENYAT REGISTERS
 ; ---------------------------
@@ -40,7 +39,6 @@
 .const SENSOR_SPEED    0x9025
 .const SENSOR_DIR      0x9026
 .const SENSOR_HEALTH   0x9027
-.cont  SENSOR_IS_DEAD  0x9028
 
 ; ---------------------------
 ; SELF-STATE REGISTERS
@@ -51,86 +49,82 @@
 .const SELF_HEALTH     0x9033
 .const SELF_X          0x9034
 .const SELF_Y          0x9035
-.const SELF_IS_DEAD    0x9036
+ 
 
-.const DLY_AMT   5
-.const FULL_THROTTLE 100
+.const MAX_ACCEL 75
+.const DLY_AMT   20
 
-!move
-    ;cut throttle
+set rC, 0       
 
-    lod rA, [RAND]
-    mod rA, 100   
-;    set rA, 25
-    str [THROTTLE], rA
+!loop
+    cmp rC, 0
+    je !go_right
 
-    lod rA, [RAND]
-    mod rA, 8
+    cmp rC, 1
+    je !go_down
 
-    cmp rA, 0
-    je !dir0
+    cmp rC, 2
+    je !go_left
 
-    cmp rA, 1
-    je !dir1
+    ; else: 3
+    jmp !go_up
 
-    cmp rA, 2
-    je !dir2
-
-    cmp rA, 3
-    je !dir3
-
-    cmp rA, 4
-    je !dir4
-
-    cmp rA, 5
-    je !dir5
-
-    cmp rA, 6
-    je !dir6
-
-    ; else: 7
-    jmp !dir7
-
-
-!dir0
+!go_right
     str [DIR_0], rZ
-    jmp !apply
+    lod rA, [SELF_X]
 
-!dir1
-    str [DIR_45], rZ
-    jmp !apply
+    cmp rA, 500        
+    jge !next_dir      
 
-!dir2
+    set rB, MAX_ACCEL
+    str [THROTTLE], rB
+    ;DLY DLY_AMT
+    jmp !loop
+
+
+!go_down
     str [DIR_90], rZ
-    jmp !apply
+    lod rA, [SELF_Y]
 
-!dir3
-    str [DIR_135], rZ
-    jmp !apply
+    cmp rA, 500        
+    jge !next_dir
 
-!dir4
+    set rB, MAX_ACCEL
+    str [THROTTLE], rB
+    ;DLY DLY_AMT
+    jmp !loop
+
+
+!go_left
     str [DIR_180], rZ
-    jmp !apply
+    lod rA, [SELF_X]
 
-!dir5
-    str [DIR_225], rZ
-    jmp !apply
+    cmp rA, 150        
+    jle !next_dir
 
-!dir6
+    set rB, MAX_ACCEL
+    str [THROTTLE], rB
+    ;DLY DLY_AMT
+    jmp !loop
+
+
+!go_up
     str [DIR_270], rZ
-    jmp !apply
+    lod rA, [SELF_Y]
 
-!dir7
-    str [DIR_315], rZ
-    ; fall through
+    cmp rA, 200        
+    jle !next_dir
 
-!apply
-    lod rA, [RAND]
-    mod rA, 30
-
-    DLY DLY_AMT
-    DLY rA
+    set rB, MAX_ACCEL
+    str [THROTTLE], rB
+    ;DLY DLY_AMT
+    jmp !loop
 
 
-
-    jmp !move
+!next_dir
+    inc rC
+    mod rC, 4           
+    set rB, 0
+    str [THROTTLE], rB  
+    ;DLY DLY_AMT
+    jmp !loop
