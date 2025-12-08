@@ -18,6 +18,12 @@ struct Car {
     int w, h;
     float angle;
     TPixel color;
+    std::string name;
+    car_type type;
+
+    int   maxHealth;  
+    float speedScale; 
+    float turnRate;   
 };
 
 struct DerbyState {
