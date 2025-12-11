@@ -443,6 +443,25 @@ car_type parse_car_type_from_filename(const std::string& filename) {
     return CAR_TYPE_DEFAULT;
 }
 
+// Per-car-type speed scaling.
+// 1.0f = baseline (MAX_SPEED).
+float getCarSpeedScale(const Car& c)
+{
+    switch (c.type)
+    {
+        case CAR_TYPE_MOTORCYCLE:   return 1.40f; // very fast, fragile
+        case CAR_TYPE_CORVETTE:     return 1.30f; // fast sports car
+        case CAR_TYPE_MUSTANG:      return 1.20f; // muscle car
+        case CAR_TYPE_CONVERTABLE:  return 1.00f; // baseline
+        case CAR_TYPE_JEEP:         return 0.95f; // a bit slower
+        case CAR_TYPE_STATIONWAGON: return 0.85f; // slower, heavier
+        case CAR_TYPE_GARBAGETRUCK: return 0.65f; // big, heavy, slow
+        case CAR_TYPE_TOWTRUCK:     return 0.55f; // tank mode
+        default:                    return 1.00f; // fallback
+    }
+}
+
+
 void randomize_cars(std::vector<Car> &cars,
                     const std::vector<teenyat> &agents,
                     const std::vector<std::string> &bin_files)
@@ -1167,9 +1186,17 @@ float computeSmoothedSpeed(int idx, const DerbyState* state) {
         return currentSpeed;
     }
 
+    float maxSpeed = MAX_SPEED; 
+
+    if (g_cars && idx >= 0 && idx < (int)g_cars->size()) {
+        const Car& c = (*g_cars)[idx];
+        maxSpeed = MAX_SPEED * getCarSpeedScale(c);
+    }
+
     float tval = std::clamp((float)state->throttle, -100.0f, 100.0f);
 
-    float targetSpeed = (tval / 100.0f) * MAX_SPEED;
+    float targetSpeed = (tval / 100.0f) * maxSpeed;
+
     float accel = (targetSpeed - currentSpeed) * SPEED_SMOOTHING;
     currentSpeed += accel;
 
@@ -1181,13 +1208,12 @@ float computeSmoothedSpeed(int idx, const DerbyState* state) {
     if (std::fabs(currentSpeed) < 0.02f)
         currentSpeed = 0.0f;
 
-    currentSpeed = std::clamp(currentSpeed, -MAX_SPEED, MAX_SPEED);
+    currentSpeed = std::clamp(currentSpeed, -maxSpeed, maxSpeed);
 
-    // Apply slip reduction (0.05–0.20 recommended)
-    currentSpeed = applySlipReduction(currentSpeed, state->direction * (3.14159265f/4.0f), 0.12f);
+    float headingAngle = state->direction * (3.14159265f / 4.0f);
+    currentSpeed = applySlipReduction(currentSpeed, headingAngle, 0.12f);
 
     return currentSpeed;
-
 }
 
 
