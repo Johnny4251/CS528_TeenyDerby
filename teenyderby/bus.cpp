@@ -72,7 +72,7 @@ void derby_bus_read(teenyat *t, tny_uword addr, tny_word *data, uint16_t *delay)
 
         case DERBY_SENSOR_IS_DEAD: {
             int ti = get_target_index();
-            if (ti >= 0) data->u = g_derby_state[ti].isDead ? 1 : 0;
+            if (ti >= 0) data->s = g_derby_state[ti].isDead ? 1 : 0;
             break;
         }
 
@@ -101,7 +101,7 @@ void derby_bus_read(teenyat *t, tny_uword addr, tny_word *data, uint16_t *delay)
             break;
 
         case DERBY_SELF_IS_DEAD:
-            data->u = self->isDead ? 1 : 0;
+            data->s = self->isDead ? 1 : 0;
             break;
 
         default:
