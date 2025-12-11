@@ -47,6 +47,7 @@ struct DerbyState {
     int16_t speed;
     int8_t health;
     int smokeLevel;
+    bool breakdown = false;
 
     bool isDead;
 };
@@ -108,13 +109,16 @@ void drawRotatedCar(Tigr* win, const Car& car);
 // Renders a health bar above the car.
 void drawHealthBar(Tigr* win, const Car& car);
 
+// Spawns a smoke particle at (x, y) with intensity level.
 void spawnSmoke(float x, float y, int level);
 
+//Updates position of existing smoke particles and renders them.
 void updateSmoke(Tigr* win);
 
-// Retrieves smoke level based on health
-int getSmokeLevel(int health);
+// Retrieves smoke level based on indexed car's health.
+int getSmokeLevel(int i);
 
+// Calls on spawnSmoke from the car based on its smoke level.
 void emitSmoke(Tigr* win, const Car& car, int level);
 
 

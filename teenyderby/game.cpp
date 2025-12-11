@@ -1,5 +1,10 @@
 #include <iostream>
 #include "game.h"
+#include "miniaudio.h"
+extern ma_engine engine;
+extern ma_sound collisionSound;
+extern ma_sound collisionSound1;
+extern ma_sound breakdownSound;
 
 void gameInit(GameState& game, const std::vector<std::string>& bins) {
     game.agents.clear();
@@ -52,8 +57,20 @@ bool gameFrame(Tigr* win, GameState& game) {
             int collidedWith;
             bool blocked = detectCollision(game.cars, i, nx, ny, collidedWith);
 
-            if (blocked)
+            if (blocked) {
+                if (g_hitCooldown[i] == 0 && g_derby_state[i].health > 0) {
+                    int s = rand() % 2;
+                    if (s == 0)
+                        ma_engine_play_sound(&engine, "collision.wav", NULL);
+                    else
+                        ma_engine_play_sound(&engine, "collision1.wav", NULL);
+                }
                 applyCollisionDamage((int)i, collidedWith);
+                if (g_derby_state[i].health == 0 && !g_derby_state[i].breakdown) {
+                    ma_engine_play_sound(&engine, "breakdown.mp3", NULL);
+                    g_derby_state[i].breakdown = true;
+                }
+            }
 
             applyMovementOrClamp(game.cars[i], state, blocked, nx, ny, (int)i);
         }
