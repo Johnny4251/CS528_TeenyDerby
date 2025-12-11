@@ -42,6 +42,7 @@
 .const SENSOR_SPEED    0x9025
 .const SENSOR_DIR      0x9026
 .const SENSOR_HEALTH   0x9027
+.const SENSOR_IS_DEAD  0x9028
 
 ; ---------------------------
 ; SELF-STATE REGISTERS
